@@ -1,5 +1,6 @@
 package net.knarcraft.stargate.utility;
 
+import net.knarcraft.stargate.Stargate;
 import org.bukkit.DyeColor;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
@@ -75,11 +76,11 @@ public final class SignHelper {
      */
     private static boolean hasSignSides() {
         try {
-            Class.forName("Side");
             Class<?> aClass = Class.forName("org.bukkit.block.Sign");
             aClass.getMethod("getSide", Side.class);
             return true;
         } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+            Stargate.debug("SignHelper::hasSignSides", "Detected legacy Spigot");
             return false;
         }
     }

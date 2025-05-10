@@ -152,7 +152,13 @@ public class PortalSignDrawer {
         ChatColor highlightColor = signData.getHighlightSignColor();
         ChatColor mainColor = signData.getMainSignColor();
 
+        // Initialize all lines as empty to prevent null
         String[] lines = new String[4];
+        lines[0] = "";
+        lines[1] = "";
+        lines[2] = "";
+        lines[3] = "";
+
         setLine(signData, 0, highlightColor + "-" + mainColor + translateAllColorCodes(portal.getName()) +
                 highlightColor + "-", lines);
 
