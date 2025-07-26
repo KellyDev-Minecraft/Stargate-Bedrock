@@ -5,7 +5,7 @@ description: The original, and still the best, MineCraft transportation solution
 author: EpicKnarvik97
 authors: [ Drakia, PseudoKnight, EpicKnarvik97 ]
 website: https://sgrewritten.org/legacygit
-api-version: 1.16
+api-version: 1.20
 softdepend: [ Vault, dynmap, Geyser-Spigot, floodgate ]
 commands:
   stargate:
