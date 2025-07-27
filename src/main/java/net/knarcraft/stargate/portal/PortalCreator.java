@@ -75,10 +75,10 @@ public class PortalCreator {
         }
 
         //Get necessary information from the gate's sign
-        String portalName = PortalHandler.filterName(event.getLine(0));
-        String destinationName = PortalHandler.filterName(event.getLine(1));
-        String network = PortalHandler.filterName(event.getLine(2));
-        String options = PortalHandler.filterName(event.getLine(3)).toLowerCase();
+        @NotNull String portalName = PortalHandler.filterName(event.getLine(0));
+        @NotNull String destinationName = PortalHandler.filterName(event.getLine(1));
+        @NotNull String network = PortalHandler.filterName(event.getLine(2));
+        @NotNull String options = PortalHandler.filterName(event.getLine(3)).toLowerCase();
 
         PortalStrings portalStrings = new PortalStrings(portalName, network, destinationName);
 
@@ -230,7 +230,7 @@ public class PortalCreator {
      * @return <p>The portal or null if its creation was denied</p>
      */
     @Nullable
-    public Portal validatePortal(@NotNull String denyMessage, String[] lines, boolean deny) {
+    public Portal validatePortal(@NotNull String denyMessage, @NotNull String[] lines, boolean deny) {
         PortalLocation portalLocation = portal.getLocation();
         Gate gate = portal.getStructure().getGate();
         PortalOptions portalOptions = portal.getOptions();

@@ -89,16 +89,6 @@ public class Gate {
     }
 
     /**
-     * Checks whether the given material is valid for control blocks
-     *
-     * @param material <p>The material to check</p>
-     * @return <p>True if the material is valid for control blocks</p>
-     */
-    public boolean isValidControlBlock(@NotNull Material material) {
-        return getControlBlockMaterials().contains(new BukkitMaterialSpecifier(material));
-    }
-
-    /**
      * Gets the material type used for this gate's control blocks
      *
      * @return <p>The material type used for control blocks</p>
@@ -233,7 +223,7 @@ public class Gate {
             if (materialInLayout != null) {
                 if (!MaterialHelper.specifiersToMaterials(materialInLayout).contains(materialAtLocation)) {
                     Stargate.debug("Gate::Matches", String.format("Block Type Mismatch: %s != %s",
-                            materialAtLocation, materialInLayout));
+                            materialAtLocation, MaterialHelper.specifiersToMaterials(materialInLayout)));
                     return false;
                 }
             } else {

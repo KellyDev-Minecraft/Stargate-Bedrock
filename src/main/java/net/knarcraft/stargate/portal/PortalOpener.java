@@ -1,6 +1,7 @@
 package net.knarcraft.stargate.portal;
 
 import net.knarcraft.stargate.Stargate;
+import net.knarcraft.stargate.config.material.BukkitTagSpecifier;
 import net.knarcraft.stargate.container.BlockChangeRequest;
 import net.knarcraft.stargate.container.BlockLocation;
 import net.knarcraft.stargate.event.StargateCloseEvent;
@@ -10,6 +11,7 @@ import net.knarcraft.stargate.utility.ListHelper;
 import net.knarcraft.stargate.utility.MaterialHelper;
 import org.bukkit.Axis;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.block.data.Orientable;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -144,8 +146,8 @@ public class PortalOpener {
             //Set the destination portal to this opener's portal
             destination.getPortalActivator().setDestination(portal);
 
-            //Update the destination's sign if it's verified
-            if (destination.getStructure().isVerified()) {
+            //Update the destination's sign if it exists
+            if (new BukkitTagSpecifier(Tag.WALL_SIGNS).asMaterials().contains(destination.getLocation().getSignLocation().getType())) {
                 destination.drawSign();
             }
         }

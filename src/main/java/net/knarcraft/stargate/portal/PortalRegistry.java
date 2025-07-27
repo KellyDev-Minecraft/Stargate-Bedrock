@@ -2,8 +2,10 @@ package net.knarcraft.stargate.portal;
 
 import net.knarcraft.stargate.Stargate;
 import net.knarcraft.stargate.config.DynmapManager;
+import net.knarcraft.stargate.config.material.BukkitTagSpecifier;
 import net.knarcraft.stargate.container.BlockLocation;
 import net.knarcraft.stargate.utility.PortalFileHelper;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -203,7 +205,7 @@ public class PortalRegistry {
             for (String originName : allPortalNetworks.get(networkName)) {
                 Portal origin = PortalHandler.getByName(originName, portal.getCleanNetwork());
                 if (origin == null || !origin.getDestinationName().equalsIgnoreCase(portalName) ||
-                        !origin.getStructure().isVerified()) {
+                        !new BukkitTagSpecifier(Tag.WALL_SIGNS).asMaterials().contains(origin.getLocation().getSignLocation().getType())) {
                     continue;
                 }
                 //Update the portal's sign

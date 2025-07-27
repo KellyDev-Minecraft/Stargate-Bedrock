@@ -21,7 +21,6 @@ public class PortalStructure {
     private BlockLocation button;
     private BlockLocation[] frame;
     private BlockLocation[] entrances;
-    private boolean verified;
 
     /**
      * Instantiates a new portal structure
@@ -33,7 +32,6 @@ public class PortalStructure {
     public PortalStructure(@NotNull Portal portal, @NotNull Gate gate, @Nullable BlockLocation button) {
         this.portal = portal;
         this.gate = gate;
-        this.verified = false;
         this.button = button;
     }
 
@@ -64,35 +62,6 @@ public class PortalStructure {
      */
     public void setButton(@NotNull BlockLocation button) {
         this.button = button;
-    }
-
-    /**
-     * Verifies that all control blocks in this portal follows its gate template
-     *
-     * @return <p>True if all control blocks were verified</p>
-     */
-    public boolean isVerified() {
-        boolean verified = true;
-        if (!Stargate.getGateConfig().verifyPortals()) {
-            return true;
-        }
-        for (RelativeBlockVector control : gate.getLayout().getControls()) {
-            verified = verified && gate.isValidControlBlock(portal.getBlockAt(control).getBlock().getType());
-        }
-        this.verified = verified;
-        return verified;
-    }
-
-    /**
-     * Gets the result of the last portal verification
-     *
-     * @return <p>True if this portal was verified</p>
-     */
-    public boolean wasVerified() {
-        if (!Stargate.getGateConfig().verifyPortals()) {
-            return true;
-        }
-        return verified;
     }
 
     /**

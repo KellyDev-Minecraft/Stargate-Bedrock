@@ -2,6 +2,7 @@ package net.knarcraft.stargate.portal;
 
 import net.knarcraft.stargate.Stargate;
 import net.knarcraft.stargate.config.Message;
+import net.knarcraft.stargate.config.material.BukkitTagSpecifier;
 import net.knarcraft.stargate.container.BlockLocation;
 import net.knarcraft.stargate.container.RelativeBlockVector;
 import net.knarcraft.stargate.portal.property.PortalLocation;
@@ -12,6 +13,7 @@ import net.knarcraft.stargate.portal.property.gate.GateHandler;
 import net.knarcraft.stargate.utility.MaterialHelper;
 import net.knarcraft.stargate.utility.PermissionHelper;
 import org.bukkit.Location;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -218,7 +220,7 @@ public class PortalHandler {
             Portal origin = getByName(originName, portal.getCleanNetwork());
             if (origin == null ||
                     !Portal.cleanString(origin.getDestinationName()).equals(portal.getCleanName()) ||
-                    !origin.getStructure().isVerified()) {
+                    !new BukkitTagSpecifier(Tag.WALL_SIGNS).asMaterials().contains(origin.getLocation().getSignLocation().getType())) {
                 continue;
             }
             //Update sign of fixed gates pointing at this gate
@@ -434,7 +436,18 @@ public class PortalHandler {
         for (Portal portal : PortalRegistry.getAllPortals()) {
             //Try and verify the portal. Invalidate it if it cannot be validated
             PortalStructure structure = portal.getStructure();
-            if (!structure.wasVerified() && (!structure.isVerified() || !structure.checkIntegrity())) {
+
+            Stargate.debug("PortalHandler::verifyAllPortals", "Checking portal: " + portal.getName() + " | " + portal.getNetwork());
+            if (!portal.getOptions().hasNoSign() && !(new BukkitTagSpecifier(Tag.WALL_SIGNS).asMaterials().contains(
+                    portal.getLocation().getSignLocation().getType()))) {
+                Stargate.debug("PortalHandler::verifyAllPortals", "Stargate is missing its sign");
+                invalidPortals.add(portal);
+            } else if (!portal.getOptions().isAlwaysOn() && portal.getLocation().getButtonVector() != null &&
+                    !MaterialHelper.isButtonCompatible(portal.getBlockAt(portal.getLocation().getButtonVector().addOut(1)).getType())) {
+                Stargate.debug("PortalHandler::verifyAllPortals", "Stargate is missing a valid button");
+                invalidPortals.add(portal);
+            } else if (!structure.checkIntegrity()) {
+                Stargate.debug("PortalHandler::verifyAllPortals", "Stargate's border or entrance has invalid blocks");
                 invalidPortals.add(portal);
             }
         }
@@ -462,7 +475,7 @@ public class PortalHandler {
             }
         }
         PortalRegistry.unregisterPortal(portal, false);
-        Stargate.logInfo(String.format("Destroying stargate at %s", portal));
+        Stargate.logInfo(String.format("Disabled stargate at %s", portal));
     }
 
     /**
