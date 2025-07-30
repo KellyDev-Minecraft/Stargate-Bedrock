@@ -172,15 +172,15 @@ public class PortalOptions {
     }
 
     /**
-     * Gets whether this portal is silent
+     * Gets whether this portal is QUIET
      *
-     * <p>A silent portal does not output anything to the chat when teleporting. This option is mainly useful to keep
+     * <p>A quiet portal does not output anything to the chat when teleporting. This option is mainly useful to keep
      * the immersion during teleportation (for role-playing servers or similar).</p>
      *
-     * @return <p>Whether this portal is silent</p>
+     * @return <p>Whether this portal is quiet</p>
      */
-    public boolean isSilent() {
-        return this.options.get(PortalOption.SILENT);
+    public boolean isQuiet() {
+        return this.options.get(PortalOption.QUIET);
     }
 
     /**

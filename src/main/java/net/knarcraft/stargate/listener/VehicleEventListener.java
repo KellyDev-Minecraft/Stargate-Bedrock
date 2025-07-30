@@ -100,7 +100,7 @@ public class VehicleEventListener implements Listener {
         for (Player player : players) {
             if (destinationPortal == null) {
                 cancelTeleportation = true;
-                if (!entrancePortal.getOptions().isSilent()) {
+                if (!entrancePortal.getOptions().isQuiet()) {
                     Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.INVALID_DESTINATION));
                 }
             } else if (!TeleportHelper.playerCanTeleport(player, entrancePortal, destinationPortal)) {
@@ -136,7 +136,7 @@ public class VehicleEventListener implements Listener {
             return;
         }
 
-        if (!entrancePortal.getOptions().isSilent()) {
+        if (!entrancePortal.getOptions().isQuiet()) {
             for (Player player : players) {
                 Stargate.getMessageSender().sendSuccessMessage(player, Stargate.getString(Message.TELEPORTED));
             }

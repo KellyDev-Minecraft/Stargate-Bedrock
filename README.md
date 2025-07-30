@@ -17,7 +17,7 @@ Highly capable, simple to use, with robust network capabilities and extensive cu
 - **Ability to create custom gate configurations**. -- Four different default gate configurations are available.
 - **Ability to include #Tags in gate designs**. (Ability to include material lists as valid options within a format)
 - **Message customization**
-- **Multiple built-in languages** (de, en, es, fr, hu, it, ja, nb-no, nl, nn-no, pt-br, ru, zh_cn)
+- **Multiple built-in languages** (cs, de, en, es, fr, hu, it, ja, nb, nl, nn, pt, ru, uk, zh)
 - **Teleport across worlds or servers** (BungeeCord supported)
 - **Vehicle teleportation** -- teleport minecarts, boats, horses, pigs and striders
 - **Leashed teleportation** -- teleport any creature in a leash with the player
@@ -74,63 +74,74 @@ server.
 
 # Permissions
 
-```
-stargate.use -- Allow use of all Stargates linking to any world in any network (Override ALL network/world permissions. Set to false to use network/world specific permissions)  
-  stargate.world -- Allow use of Stargates linking to any world  
-    stargate.world.{world} -- Allow use of Stargates with a destination in {world}. Set to false to disallow use.  
-  stargate.network -- Allow use of Stargates on all networks  
-    stargate.network.{network} -- Allow use of all Stargates in {network}. Set to false to disallow use.
-  stargate.server -- Allow use of Stargates going to all servers
-    stargate.server.{server} -- Allow usee of all Stargates going to {server}. Set to false to disallow use.
-    
-stargate.option -- Allow use of all options
-  stargate.option.hidden -- Allow use of 'H'idden
-  stargate.option.alwayson -- Allow use of 'A'lways-On
-  stargate.option.private -- Allow use of 'P'rivate
-  stargate.option.free -- Allow use of 'F'ree
-  stargate.option.backwards -- Allow use of 'B'ackwards
-  stargate.option.show -- Allow use of 'S'how
-  stargate.option.nonetwork -- Allow use of 'N'oNetwork
-  stargate.option.random -- Allow use of 'R'andom stargates
-  stargate.option.silent -- Allow use of S'i'lent stargates
-  stargate.option.nosign -- Allow use of 'E' (No sign)
-  
-stargate.create -- Allow creating Stargates on any network (Override all create permissions)
-  stargate.create.personal -- Allow creating Stargates on network {playername}
-  stargate.create.network -- Allow creating Stargates on any network
-    stargate.create.network.{networkname} -- Allow creating Stargates on network {networkname}. Set to false to disallow creation on {networkname}
-  stargate.create.gate -- Allow creation using any gate layout
-    stargate.create.gate.{gatefile} -- Allow creation using only {gatefile} gates
+## Easy setup permission groups
 
-stargate.destroy -- Allow destruction of Stargates on any network (Overrides all destroy permissions)
-  stargate.destroy.personal -- Allow destruction of Stargates owned by the player only
-  stargate.destroy.network -- Allow destruction of Stargates on any network
-    stargate.destroy.network.{networkname} -- Allow destruction of Stargates on network {networkname}. Set to false to disallow destruction of {networkname}
+Note: These permission groups inherit from each other (builder has player's permissions and admin has builder's
+permissions), so you only need the most permissive one.
 
-stargate.free -- Allow free use/creation/destruction of Stargates
-  stargate.free.use -- Allow free use of Stargates
-  stargate.free.create -- Allow free creation of Stargates
-  stargate.free.destroy -- Allow free destruction of Stargates
-  
-stargate.admin -- Allow all admin features (Hidden/Private bypass, BungeeCord, Reload, Config)
-  stargate.admin.private -- Allow use of Private gates not owned by user
-  stargate.admin.hidden -- Allow access to Hidden gates not owned by the user
-  stargate.admin.bungee -- Allow the creation of BungeeCord stargates (U option)
-  stargate.admin.reload -- Allow use of the reload command
-  stargate.admin.config -- Allows the player to change config values from the chat
-  stargate.admin.dye -- Allows this player to change the dye of any stargate's sign
-```
+| Node                   | Default | Description                                                                                                                                                     |
+|------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| stargate.group.player  | True    | Allows using all non-private/non-personal Stargates and creating personal Stargates using the default nethergate format.                                        |
+| stargate.group.builder | False   | Allows creating and destroying all types of Stargates anywhere with any option (except BungeeCord).                                                             |
+| stargate.group.admin   | Op      | Allows admin stuff like creating BungeeCord gates, reloading, changing the configuration, dying any Stargate's sign and accessing private and hidden Stargates. |
+| stargate.*             | False   | Gives all Stargate-related permissions                                                                                                                          |
 
-## Default Permissions
+## Individual nodes
 
-```
-stargate.use -- Everyone
-stargate.create -- Op
-stargate.destroy -- Op
-stargate.option -- Op
-stargate.free -- Op
-stargate.admin -- Op
-```
+<details>
+    <summary>The full list of permission nodes may be found below: (Click to expand)</summary>
+
+Note: `-` is used to show inheritance, such as `stargate.use` being a parent of `stargate.world`, `stargate.network`, and
+`stargate.server`, thus giving all permissions of the indented items following the unindented node.
+
+| Node                                      | Description                                                                                                                                                     |
+|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| stargate.use                              | Allow use of all Stargates linking to any world in any network (Override ALL network/world permissions. Set to false to use network/world specific permissions) | 
+| - stargate.world                          | Allow use of Stargates linking to any world                                                                                                                     | 
+| -- stargate.world.{world}                 | Allow use of Stargates with a destination in {world}. Set to false to disallow use.                                                                             | 
+| - stargate.network                        | Allow use of Stargates on all networks                                                                                                                          | 
+| -- stargate.network.{network}             | Allow use of all Stargates in {network}. Set to false to disallow use.                                                                                          |
+| - stargate.server                         | Allow use of Stargates going to all servers                                                                                                                     |
+| -- stargate.server.{server}               | Allow usee of all Stargates going to {server}. Set to false to disallow use.                                                                                    |
+|                                           |                                                                                                                                                                 |
+| stargate.option                           | Allow use of all options                                                                                                                                        |
+| - stargate.option.hidden                  | Allow use of 'H'idden                                                                                                                                           |
+| - stargate.option.alwayson                | Allow use of 'A'lways-On                                                                                                                                        |
+| - stargate.option.private                 | Allow use of 'P'rivate                                                                                                                                          |
+| - stargate.option.free                    | Allow use of 'F'ree                                                                                                                                             |
+| - stargate.option.backwards               | Allow use of 'B'ackwards                                                                                                                                        |
+| - stargate.option.show                    | Allow use of 'S'how                                                                                                                                             |
+| - stargate.option.nonetwork               | Allow use of 'N'oNetwork                                                                                                                                        |
+| - stargate.option.random                  | Allow use of 'R'andom stargates                                                                                                                                 |
+| - stargate.option.quiet                   | Allow use of 'Q'uiet stargates                                                                                                                                  |
+| - stargate.option.nosign                  | Allow use of 'V' (No sign)                                                                                                                                      |
+|                                           |                                                                                                                                                                 |
+| stargate.create                           | Allow creating Stargates on any network (Override all create permissions)                                                                                       |
+| - stargate.create.personal                | Allow creating Stargates on network {playername}                                                                                                                |
+| - stargate.create.network                 | Allow creating Stargates on any network                                                                                                                         |
+| -- stargate.create.network.{networkname}  | Allow creating Stargates on network {networkname}. Set to false to disallow creation on {networkname}                                                           |
+| - stargate.create.gate                    | Allow creation using any gate layout                                                                                                                            |
+| -- stargate.create.gate.{gatefile}        | Allow creation using only {gatefile} gates                                                                                                                      |
+|                                           |                                                                                                                                                                 |
+| stargate.destroy                          | Allow destruction of Stargates on any network (Overrides all destroy permissions)                                                                               |
+| - stargate.destroy.personal               | Allow destruction of Stargates owned by the player only                                                                                                         |
+| - stargate.destroy.network                | Allow destruction of Stargates on any network                                                                                                                   |
+| -- stargate.destroy.network.{networkname} | Allow destruction of Stargates on network {networkname}. Set to false to disallow destruction of {networkname}                                                  |
+|                                           |                                                                                                                                                                 |
+| stargate.free                             | Allow free use/creation/destruction of Stargates                                                                                                                |
+| - stargate.free.use                       | Allow free use of Stargates                                                                                                                                     |
+| - stargate.free.create                    | Allow free creation of Stargates                                                                                                                                |
+| - stargate.free.destroy                   | Allow free destruction of Stargates                                                                                                                             |
+|                                           |                                                                                                                                                                 |
+| stargate.admin                            | Allow all admin features (Hidden/Private bypass, BungeeCord, Reload, Config)                                                                                    |
+| - stargate.admin.private                  | Allow use of Private gates not owned by user                                                                                                                    |
+| - stargate.admin.hidden                   | Allow access to Hidden gates not owned by the user                                                                                                              |
+| - stargate.admin.bungee                   | Allow the creation of BungeeCord stargates (U option)                                                                                                           |
+| - stargate.admin.reload                   | Allow use of the reload command                                                                                                                                 |
+| - stargate.admin.config                   | Allows the player to change config values from the chat                                                                                                         |
+| - stargate.admin.dye                      | Allows this player to change the dye of any stargate's sign                                                                                                     |
+
+</details>
 
 # Instructions
 
@@ -252,23 +263,30 @@ X*.X
   sign).
 - `button` is used to define what is used for the gate's *activator*. It may be any type of button, wall coral, or
   container.
+- All materials can use a single tag or material, or a comma-separated list of tags, materials or both (#WOOL,Obsidian).
+  Upon generating a button, or opening/closing a Stargate, a random possible material is chosen. When validating, any
+  material/tag specified in the comma-separated list is considered valid.
 
 <details>
     <summary>The full list of valid activator types may be found below: (Click to expand)</summary>
 
 ``` 
-STONE_BUTTON
+Any kind of button (automatically updated):
+
 OAK_BUTTON
 SPRUCE_BUTTON
 BIRCH_BUTTON
 JUNGLE_BUTTON
 ACACIA_BUTTON
 DARK_OAK_BUTTON
+MANGROVE_BUTTON
+CHERRY_BUTTON
+PALE_OAK_BUTTON
+BAMBOO_BUTTON
 CRIMSON_BUTTON
 WARPED_BUTTON
+STONE_BUTTON
 POLISHED_BLACKSTONE_BUTTON
-BAMBOO_BUTTON
-CHERRY_BUTTON
 
 CHEST
 TRAPPED_CHEST
@@ -378,7 +396,7 @@ In this case, a simple 5x5 square has been used as a gate.
 
 Gates are also not limited to [materials](https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html) (such
 as `OBSIDIAN`); they may also use [tags](https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Tag.html) (such
-as `#WOOL`).<br>
+as `#WOOL`), or a comma-separated list (such as `OBSIDIAN,#WOOL`).<br>
 Note that all tags must be prefaced with a hashtag (`#`), as in `#WOOL`.
 
 ```
@@ -414,50 +432,54 @@ X.*.X
 
 # Configuration
 
-```
-language - The language to use (Included languages: en, de, es, fr, hu, it, ja, nb-no, nl, nn-no, pt-br, ru, zh_cn)
-adminUpdateAlert - Whether to alert admins about an available update when joining the server
-folders:
-  portalFolder - The folder your portal databases are saved in
-  gateFolder - The folder containing your .gate files
-gates:
-  maxGatesEachNetwork - If non-zero, will define the maximum amount of gates allowed on any network.
-  defaultGateNetwork - The default gate network
-  exitVelocity - The velocity to give players exiting stargates, relative to the entry velocity (1 = same as entry velocity)
-  cosmetic:
-    rememberDestination - Whether to set the first destination as the last used destination for all gates
-    sortNetworkDestinations - If true, network lists will be sorted alphabetically.
-    mainSignColor - This allows you to specify the color of the gate signs. Use a color code such as WHITE,BLACK,YELLOW or a hex color code such as '#ed76d9'. You need quotes around hex color codes.
-    highlightSignColor - This allows you to specify the color of the sign markings. Use a color code such as WHITE,BLACK,YELLOW or a hex color code such as '#ed76d9'. You need quotes around hex color codes.
-    perSignColors: - A list of per-sign color specifications. Format: "SIGN_TYPE:mainColor,highlight_color". The SIGN_TYPE is OAK for an oak sign, DARK_OAK for a dark oak sign and so on. The colors can be "default" to use the color specified in "mainSignColor" or "highlightSignColor", "inverted" to use the inverse color of the default color, a normal color such as BLACK,WHITE,YELLOW or a hex color code such as #ed76d9.
-  integrity:
-    destroyedByExplosion - Whether to destroy a stargate with explosions, or stop an explosion if it contains a gates controls.
-    verifyPortals - Whether or not all the non-sign blocks are checked to match the gate layout when an old stargate is loaded at startup.
-    protectEntrance - If true, will protect from users breaking gate entrance blocks (This is more resource intensive than the usual check, and should only be enabled for servers that use solid open/close blocks)
-    controlUpdateDelay - The amount of ticks to wait between each Stargate control block update after startup. Increase this if Stargate loads too many chunks during startup.
-  functionality:
-    enableBungee - Enable this for BungeeCord support. This allows portals across Bungee servers.
-    handleVehicles - Whether or not to handle vehicles going through gates. Set to false to disallow vehicles (Manned or not) going through gates.
-    handleEmptyVehicles - Whether or not to handle empty vehicles going through gates (chest/hopper/tnt/furnace minecarts included).
-    handleCreatureTransportation - Whether or not to handle players that transport creatures by sending vehicles (minecarts, boats) through gates.
-    handleNonPlayerVehicles - Whether or not to handle vehicles with a passenger which is not a player going through gates (pigs, horses, villagers, creepers, etc.). handleCreatureTransportation must be enabled.
-    handleLeashedCreatures - Whether or not to handle creatures leashed by a player going through gates. Set to false to disallow leashed creatures going through gates.
-    enableCraftBookRemoveOnEjectFix - Whether to enable a fix that causes loss of NBT data, but allows vehicle teleportation to work when CraftBook's remove minecart/boat on eject setting is enabled
-economy:
-  useEconomy - Whether or not to enable Economy using Vault (must have the Vault plugin)
-  createCost - The cost to create a stargate
-  destroyCost - The cost to destroy a stargate (Can be negative for a "refund"
-  useCost - The cost to use a stargate
-  toOwner - Whether the money from gate-use goes to the owner or nobody
-  chargeFreeDestination - Enable to make players pay for teleportation even if the destination is free
-  freeGatesColored - Enable to make gates that won't cost the player money show up as green
-  freeGatesColor - This allows you to specify the color of the markings and name of free stargates
-debugging:
-  debug - Whether to show massive debug output
-  permissionDebug - Whether to show massive permission debug output
-advanced:
-  waitForPlayerAfterTeleportDelay - The amount of ticks to wait before adding a player as passenger of a vehicle. On slow servers, a value of 6 is required to avoid client glitches after teleporting on a vehicle.
-```
+| Node                             | Default                   | Description                                                                                                                                                                                                                                                                                                                                                                                                       |
+|----------------------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| language                         | en                        | The language to use (Included languages: cs, de, en, es, fr, hu, it, ja, nb, nl, nn, pt, ru, uk, zh).                                                                                                                                                                                                                                                                                                             |
+| adminUpdateAlert                 | true                      | Whether to alert admins about an available update when joining the server.                                                                                                                                                                                                                                                                                                                                        |
+| dynmap                           |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .enableDynmap                    | true                      | Should StarGate enable integration with Dynmap? This will show StarGates on your map.                                                                                                                                                                                                                                                                                                                             |
+| .dynmapIconsHiddenByDefault      | false                     | Should StarGate icons be hidden by default? (must users manually enable their checkbox?)                                                                                                                                                                                                                                                                                                                          |
+| gates                            |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .maxGatesEachNetwork             | 0                         | If non-zero, will define the maximum amount of gates allowed on any network.                                                                                                                                                                                                                                                                                                                                      |
+| .defaultGateNetwork              | central                   | The default network for any non-personal Stargate without an explicitly defined network.                                                                                                                                                                                                                                                                                                                          |
+| .exitVelocity                    | 0.1                       | The velocity to give players exiting stargates, relative to the entry velocity (1 = same as entry velocity)                                                                                                                                                                                                                                                                                                       |
+| gates.functionality              |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .enableCraftBookRemoveOnEjectFix | false                     | Should the plugin sacrifice vehicle integrity in order to fix a CraftBook destroy on exit incompatibility?                                                                                                                                                                                                                                                                                                        |
+| .enableBungee                    | false                     | Enable this for BungeeCord support. This allows portals across Bungee servers.                                                                                                                                                                                                                                                                                                                                    |
+| .handleVehicles                  | true                      | Whether or not to handle vehicles going through gates. Set to false to disallow vehicles (Manned or not) going through gates.                                                                                                                                                                                                                                                                                     |
+| .handleEmptyVehicles             | true                      | Whether or not to handle empty vehicles going through gates (chest/hopper/tnt/furnace minecarts included).                                                                                                                                                                                                                                                                                                        |
+| .handleCreatureTransportation    | true                      | Whether to handle players that transport creatures by sending vehicles (minecarts, boats) through gates.                                                                                                                                                                                                                                                                                                          |
+| .handleNonPlayerVehicles         | true                      | Whether or not to handle vehicles with a passenger which is not a player going through gates (pigs, horses, villagers, creepers, etc.). handleCreatureTransportation must be enabled.                                                                                                                                                                                                                             |
+| .handleLeashedCreatures          | true                      | Whether or not to handle creatures leashed by a player going through gates. Set to false to disallow leashed creatures going through gates.                                                                                                                                                                                                                                                                       |
+| gates.integrity                  |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .destroyedByExplosion            | false                     | Whether to destroy a stargate with explosions, or stop an explosion if it contains a gates controls.                                                                                                                                                                                                                                                                                                              |
+| .verifyPortals                   | false                     | Whether or not all the non-sign blocks are checked to match the gate layout when an old stargate is loaded at startup.                                                                                                                                                                                                                                                                                            |
+| .protectEntrance                 | false                     | If true, will protect from users breaking gate entrance blocks (This is more resource intensive than the usual check, and should only be enabled for servers that use solid open/close blocks)                                                                                                                                                                                                                    |
+| .controlUpdateDelay              | 3                         | The amount of ticks to wait between each Stargate control block update after startup. Increase this if Stargate loads too many chunks during startup.                                                                                                                                                                                                                                                             |
+| gates.cosmetic                   |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .rememberDestination             | false                     | Whether the topmost name on a sign's destinations should be the most recently used destination.                                                                                                                                                                                                                                                                                                                   |
+| .sortNetworkDestinations         | false                     | If true, network lists will be sorted alphabetically.                                                                                                                                                                                                                                                                                                                                                             |
+| .mainSignColor                   | BLACK                     | This allows you to specify the color of the gate signs. Use a color code such as WHITE,BLACK,YELLOW or a hex color code such as '#ed76d9'. You need quotes around hex color codes.                                                                                                                                                                                                                                |
+| .highlightSignColor              | WHITE                     | This allows you to specify the color of the sign markings. Use a color code such as WHITE,BLACK,YELLOW or a hex color code such as '#ed76d9'. You need quotes around hex color codes.                                                                                                                                                                                                                             |
+| .perSignColors                   | \[List]                   | A list of per-sign color specifications. Format: "SIGN_TYPE:mainColor,highlight_color". The SIGN_TYPE is OAK for an oak sign, DARK_OAK for a dark oak sign and so on. The colors can be "default" to use the color specified in "mainSignColor" or "highlightSignColor", "inverted" to use the inverse color of the default color, a normal color such as BLACK,WHITE,YELLOW or a hex color code such as #ed76d9. |
+| economy                          |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .freeGatesColored                | false                     | Enable to make gates that won't cost the player money show up as green                                                                                                                                                                                                                                                                                                                                            |
+| .freeGatesColor                  | DARK_GREEN                | This allows you to specify the color of the markings and name of free stargates                                                                                                                                                                                                                                                                                                                                   |
+| .useEconomy                      | false                     | Whether or not to enable Economy using Vault (must have the Vault plugin)                                                                                                                                                                                                                                                                                                                                         |
+| .createCost                      | 0                         | The cost to create a stargate                                                                                                                                                                                                                                                                                                                                                                                     |
+| .destroyCost                     | 0                         | The cost to destroy a stargate (Can be negative for a "refund")                                                                                                                                                                                                                                                                                                                                                   |
+| .useCost                         | 0                         | The cost to use a stargate                                                                                                                                                                                                                                                                                                                                                                                        |
+| .toOwner                         | false                     | Whether the money from gate-use goes to the owner or nobody                                                                                                                                                                                                                                                                                                                                                       |
+| .chargeFreeDestination           | true                      | Enable to make players pay for teleportation even if the destination is free                                                                                                                                                                                                                                                                                                                                      |
+| .taxAccount                      | ''                        | The tax account to use if the server uses a closed economy.                                                                                                                                                                                                                                                                                                                                                       |
+| folders                          |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .portalFolder                    | plugins/Stargate/portals/ | The folder your portal databases are saved in                                                                                                                                                                                                                                                                                                                                                                     |
+| .gateFolder                      | plugins/Stargate/gates/   | The folder containing your .gate files                                                                                                                                                                                                                                                                                                                                                                            |
+| debugging                        |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .debug                           | false                     | Whether to show massive debug output                                                                                                                                                                                                                                                                                                                                                                              |
+| .permissionDebug                 | false                     | Whether to show massive permission debug output                                                                                                                                                                                                                                                                                                                                                                   |
+| advanced                         |                           |                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| .waitForPlayerAfterTeleportDelay | 6                         | The amount of ticks to wait before adding a player as passenger of a vehicle. On slow servers, a value of 6 is required to avoid client glitches after teleporting on a vehicle.                                                                                                                                                                                                                                  |
 
 # Message Customization
 
@@ -470,51 +492,51 @@ Please note that %variableName% should be kept, as it will be replaced with a re
 <details>
     <summary>The full list of strings may be found below: (Click to expand)</summary>
 
-```
-prefix=[Stargate] 
-teleportMsg=Teleported
-destroyMsg=Gate Destroyed
-invalidMsg=Invalid Destination
-blockMsg=Destination Blocked
-destEmpty=Destination List Empty
-denyMsg=Access Denied
-reloaded=Stargate Reloaded
-
-ecoDeduct=Deducted %cost%
-ecoRefund=Refunded %cost%
-ecoObtain=Obtained %cost% from Stargate %portal%
-ecoInFunds=Insufficient Funds
-ecoLoadError=Vault was loaded, but no economy plugin could be hooked into
-vaultLoadError=Economy is enabled but Vault could not be loaded. Economy disabled
-vaultLoaded=Vault v%version% found
-
-createMsg=Gate Created
-createNetDeny=You do not have access to that network
-createGateDeny=You do not have access to that gate layout
-createPersonal=Creating gate on personal network
-createNameLength=Name too short or too long.
-createExists=A gate by that name already exists
-createFull=This network is full
-createWorldDeny=You do not have access to that world
-createConflict=Gate conflicts with existing gate
-
-signRightClick=Right click
-signToUse=to use gate
-signRandom=Random
-signDisconnected=Disconnected
-signInvalidGate=Invalid gate
-
-bungeeDisabled=BungeeCord support is disabled.
-bungeeDeny=You do not have permission to create BungeeCord gates.
-bungeeEmpty=BungeeCord gates require both a destination and network.
-bungeeSign=Teleport to
-
-portalInfoTitle=[STARGATE INFO]
-portalInfoName=Name: %name%
-portalInfoDestination=Destination: %destination%
-portalInfoNetwork=Network: %network%
-portalInfoServer=Server: %server%
-```
+| Path                  | Text                                                               |
+|-----------------------|--------------------------------------------------------------------|
+| prefix                | \[Stargate]                                                        |
+| teleportMsg           | Teleported                                                         |
+| destroyMsg            | Gate Destroyed                                                     |
+| invalidMsg            | Invalid Destination                                                |
+| blockMsg              | Destination Blocked                                                |
+| destEmpty             | Destination List Empty                                             |
+| denyMsg               | Access Denied                                                      |
+| reloaded              | Stargate Reloaded                                                  |
+|                       |                                                                    |
+| ecoDeduct             | Deducted %cost%                                                    |
+| ecoRefund             | Refunded %cost%                                                    |
+| ecoObtain             | Obtained %cost% from Stargate %portal%                             |
+| ecoInFunds            | Insufficient Funds                                                 |
+| ecoLoadError          | Vault was loaded, but no economy plugin could be hooked into       |
+| vaultLoadError        | Economy is enabled but Vault could not be loaded. Economy disabled |
+| vaultLoaded           | Vault v%version% found                                             |
+|                       |                                                                    |
+| createMsg             | Gate Created                                                       |
+| createNetDeny         | You do not have access to that network                             |
+| createGateDeny        | You do not have access to that gate layout                         |
+| createPersonal        | Creating gate on personal network                                  |
+| createNameLength      | Name too short or too long.                                        |
+| createExists          | A gate by that name already exists                                 |
+| createFull            | This network is full                                               |
+| createWorldDeny       | You do not have access to that world                               |
+| createConflict        | Gate conflicts with existing gate                                  |
+|                       |                                                                    |
+| signRightClick        | Right click                                                        |
+| signToUse             | to use gate                                                        |
+| signRandom            | Random                                                             |
+| signDisconnected      | Disconnected                                                       |
+| signInvalidGate       | Invalid gate                                                       |
+|                       |                                                                    |
+| bungeeDisabled        | BungeeCord support is disabled.                                    |
+| bungeeDeny            | You do not have permission to create BungeeCord gates.             |
+| bungeeEmpty           | BungeeCord gates require both a destination and network.           |
+| bungeeSign            | Teleport to                                                        |
+|                       |                                                                    |
+| portalInfoTitle       | \[STARGATE INFO]                                                   |
+| portalInfoName        | Name: %name%                                                       |
+| portalInfoDestination | Destination: %destination%                                         |
+| portalInfoNetwork     | Network: %network%                                                 |
+| portalInfoServer      | Server: %server%                                                   |
 
 </details>
 
@@ -523,7 +545,14 @@ portalInfoServer=Server: %server%
 
 # Changes
 
-#### \[Version 0.11.5.9] Unified Legacy Fork
+#### \[Version 0.11.5.11] Unified Legacy Fork
+
+- Removes legacy sign drawing code, as the check for whether a server supported the sign sides kept failing for some
+  users.
+- Fixes some problems regarding the startup validation of Stargates, which caused valid Stargates to be disabled when
+  the verification option was enabled.
+
+#### \[Version 0.11.5.10] Unified Legacy Fork
 
 - Fixed a problem with material tag support
 - Made serveral optimisations to significantly improve performance on servers with high playercounts.

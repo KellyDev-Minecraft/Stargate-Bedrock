@@ -30,7 +30,7 @@ permissions:
     default: false
   stargate.use:
     description: Allow use of all stargates linking to any world in any network
-    default: true
+    default: false
     children:
       stargate.world: true
       stargate.network: true
@@ -43,7 +43,7 @@ permissions:
     default: false
   stargate.create:
     description: Allow creating stargates on any network using any gate type
-    default: op
+    default: false
     children:
       stargate.create.personal: true
       stargate.create.network: true
@@ -59,7 +59,7 @@ permissions:
     default: false
   stargate.destroy:
     description: Allows the destruction of all stargates
-    default: op
+    default: false
     children:
       stargate.destroy.network: true
       stargate.destroy.personal: true
@@ -71,7 +71,7 @@ permissions:
     default: false
   stargate.free:
     description: Allow free use/creation/destruction of stargates
-    default: op
+    default: false
     children:
       stargate.free.use: true
       stargate.free.create: true
@@ -87,7 +87,7 @@ permissions:
     default: false
   stargate.option:
     description: Allows use of all options
-    default: op
+    default: false
     children:
       stargate.option.hidden: true
       stargate.option.alwayson: true
@@ -97,7 +97,7 @@ permissions:
       stargate.option.show: true
       stargate.option.nonetwork: true
       stargate.option.random: true
-      stargate.option.silent: true
+      stargate.option.quiet: true
       stargate.option.nosign: true
   stargate.option.hidden:
     description: Allows the creation of a hidden stargate
@@ -123,7 +123,7 @@ permissions:
   stargate.option.random:
     description: Allows the creation of a stargate with a random destination
     default: false
-  stargate.option.silent:
+  stargate.option.quiet:
     description: Allows the creation of a stargate which does not output anything to the chat
     default: false
   stargate.option.nosign:
@@ -149,7 +149,7 @@ permissions:
     default: false
   stargate.admin:
     description: Allow all admin features and commands (Hidden/Private bypass, BungeeCord, Reload, Config)
-    default: op
+    default: false
     children:
       stargate.admin.reload: true
       stargate.admin.hidden: true
@@ -157,3 +157,27 @@ permissions:
       stargate.admin.bungee: true
       stargate.admin.config: true
       stargate.admin.dye: true
+  stargate.group.admin:
+    description: Allow everything except stargate.free
+    default: op
+    children:
+      stargate.admin: true
+      stargate.server: true
+      stargate.group.builder: true
+  stargate.group.builder:
+    description: Allows unrestricted building and destruction of Stargates with any option
+    default: false
+    children:
+      stargate.group.player: true
+      stargate.option: true
+      stargate.network: true
+      stargate.create: true
+      stargate.destroy: true
+  stargate.group.player:
+    description: Gives normal players limited use of Stargates
+    default: true
+    children:
+      stargate.use: true
+      stargate.create.gate.nethergate: true
+      stargate.create.personal: true
+      stargate.destroy.personal: true

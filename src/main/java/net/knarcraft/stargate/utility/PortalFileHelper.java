@@ -138,7 +138,7 @@ public final class PortalFileHelper {
         builder.append(options.isNoNetwork()).append(':');
         builder.append(options.isRandom()).append(':');
         builder.append(options.isBungee()).append(':');
-        builder.append(options.isSilent()).append(':');
+        builder.append(options.isQuiet()).append(':');
         builder.append(options.hasNoSign());
     }
 

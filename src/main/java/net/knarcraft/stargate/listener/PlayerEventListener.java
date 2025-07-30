@@ -161,7 +161,7 @@ public class PlayerEventListener implements Listener {
             //Just teleport the player like normal
             new PlayerTeleporter(destination, player).teleportPlayer(entrancePortal, event);
         }
-        if (!entrancePortal.getOptions().isSilent()) {
+        if (!entrancePortal.getOptions().isQuiet()) {
             Stargate.getMessageSender().sendSuccessMessage(player, Stargate.getString(Message.TELEPORTED));
         }
         entrancePortal.getPortalOpener().closePortal(false);
@@ -203,7 +203,7 @@ public class PlayerEventListener implements Listener {
 
         //Decide if the user should be teleported to another bungee server
         if (entrancePortal.getOptions().isBungee()) {
-            if (BungeeHelper.bungeeTeleport(player, entrancePortal, event) && !entrancePortal.getOptions().isSilent()) {
+            if (BungeeHelper.bungeeTeleport(player, entrancePortal, event) && !entrancePortal.getOptions().isQuiet()) {
                 Stargate.getMessageSender().sendSuccessMessage(player, Stargate.getString(Message.TELEPORTED));
             }
             return false;
@@ -404,7 +404,7 @@ public class PlayerEventListener implements Listener {
         boolean deny = PermissionHelper.cannotAccessNetwork(player, portal.getCleanNetwork());
 
         if (PermissionHelper.portalAccessDenied(player, portal, deny)) {
-            if (!portal.getOptions().isSilent()) {
+            if (!portal.getOptions().isQuiet()) {
                 Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.ACCESS_DENIED));
             }
             return true;
@@ -463,7 +463,7 @@ public class PlayerEventListener implements Listener {
     /**
      * Displays information about a clicked portal
      *
-     * <p>This will only display portal info if the portal has no sign and is not silent.</p>
+     * <p>This will only display portal info if the portal has no sign and is not quiet.</p>
      *
      * @param block  <p>The clicked block</p>
      * @param player <p>The player that clicked the block</p>
@@ -475,7 +475,7 @@ public class PlayerEventListener implements Listener {
         }
 
         //Display portal information as a portal without a sign does not display any
-        if (portal.getOptions().hasNoSign() && (!portal.getOptions().isSilent() || player.isSneaking())) {
+        if (portal.getOptions().hasNoSign() && (!portal.getOptions().isQuiet() || player.isSneaking())) {
             MessageSender sender = Stargate.getMessageSender();
             sender.sendSuccessMessage(player, ChatColor.GOLD + Stargate.getString(Message.PORTAL_INFO_TITLE));
             sender.sendSuccessMessage(player, Stargate.replacePlaceholders(Stargate.getString(Message.PORTAL_INFO_NAME),

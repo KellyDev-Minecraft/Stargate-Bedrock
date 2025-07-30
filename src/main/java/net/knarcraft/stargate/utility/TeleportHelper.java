@@ -229,7 +229,7 @@ public final class TeleportHelper {
                                             @NotNull Portal destinationPortal) {
         //Make sure the user can access the portal
         if (PermissionHelper.cannotAccessPortal(player, entrancePortal, destinationPortal)) {
-            if (!entrancePortal.getOptions().isSilent()) {
+            if (!entrancePortal.getOptions().isQuiet()) {
                 Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.ACCESS_DENIED));
             }
             entrancePortal.getPortalOpener().closePortal(false);
@@ -240,7 +240,7 @@ public final class TeleportHelper {
         int cost = EconomyHelper.getUseCost(player, entrancePortal, destinationPortal);
         boolean canAffordFee = cost <= 0 || Stargate.getEconomyConfig().canAffordFee(player, cost);
         if (!canAffordFee) {
-            if (!entrancePortal.getOptions().isSilent()) {
+            if (!entrancePortal.getOptions().isQuiet()) {
                 Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.ECONOMY_INSUFFICIENT));
             }
             return false;

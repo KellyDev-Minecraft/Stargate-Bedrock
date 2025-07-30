@@ -258,7 +258,7 @@ public class PortalActivator {
 
         //If no destinations are available, just tell the player and quit
         if (destinations.isEmpty()) {
-            if (!portal.getOptions().isSilent()) {
+            if (!portal.getOptions().isQuiet()) {
                 Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.NO_DESTINATION));
             }
             return;

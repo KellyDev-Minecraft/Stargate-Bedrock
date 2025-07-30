@@ -40,15 +40,27 @@ dynmap:
   # Should StarGate icons be hidden by default? (must users manually enable their checkbox?)
   dynmapIconsHiddenByDefault: true
 
+# +----------------------------------------------------------------------------------------------+ #
+# |                                        Gate Behaviour                                        | #
+# +----------------------------------------------------------------------------------------------+ #
 gates:
+  # What is the maximum number of gates a single network may contain? (0 for unlimited)
+  maxGatesEachNetwork: 0
+
+  # What network will be used when none has been specified? (Max length 12 characters)
+  # 
+  # Note that this primarily applies to users with the stargate.create.network node.
+  # Generally, that node is given to staff (we recommend stargate.create.personal for users).
+  defaultGateNetwork: central
+
+  # At what speed should players be sent out of portals?
+  # When exiting a gate, players retain their original movement velocity, multiplied by this value.
+  exitVelocity: 0.1
+  
   functionality:
     # Should an alternative (and less effective) teleportation script be used to teleport vehicles?
     # This will fix an incompatibility with CraftBook, but will cause vehicles' data to be wiped on teleportation.
     enableCraftBookRemoveOnEjectFix: false
-    
-    # +----------------------------------------------------------------------------------------------+ #
-    # |                                        Gate Behaviour                                        | #
-    # +----------------------------------------------------------------------------------------------+ #
     
     # Are you connected to a BungeeCord-compatible proxy?
     # Set this value to true if you intend on building gates with the bUngee flag.
@@ -71,19 +83,6 @@ gates:
     
     # Should StarGate also handle creatures attached to a player via a lead?
     handleLeashedCreatures: true
-  
-  # What is the maximum number of gates a single network may contain? (0 for unlimited)
-  maxGatesEachNetwork: 0
-  
-  # What network will be used when none has been specified? (Max length 12 characters)
-  # 
-  # Note that this primarily applies to users with the stargate.create.network node.
-  # Generally, that node is given to staff (we recommend stargate.create.personal for users).
-  defaultGateNetwork: central
-  
-  # At what speed should players be sent out of portals?
-  # When exiting a gate, players retain their original movement velocity, multiplied by this value.
-  exitVelocity: 0.1
   
   integrity:
     
@@ -144,6 +143,8 @@ gates:
       - 'WARPED:inverted,inverted'
       - 'BAMBOO:default,default'
       - 'CHERRY:default,default'
+      - 'PALE_OAK:default,default'
+      - 'MANGROVE:default,default'
 
 economy:
   # When scrolling through a networked portal's destination list, should SG color free gates?
@@ -151,7 +152,7 @@ economy:
   
   # If freeGatesColored is true, which color should SG use?
   #
-  # All color names should follow this format:
+  # All color names should be a hex RGB color (#ffffff) or follow this format:
   # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/ChatColor.html 
   freeGatesColor: DARK_GREEN
   
