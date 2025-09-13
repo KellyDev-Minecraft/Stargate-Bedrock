@@ -38,7 +38,6 @@ import java.util.List;
 /**
  * This class is responsible for listening to relevant block events related to creating and breaking portals
  */
-@SuppressWarnings("unused")
 public class BlockEventListener implements Listener {
 
     /**
@@ -49,9 +48,9 @@ public class BlockEventListener implements Listener {
      *
      * @param event <p>The triggered event</p>
      */
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBlockFormedByEntity(@NotNull EntityBlockFormEvent event) {
-        if (event.isCancelled() || (!Stargate.getGateConfig().protectEntrance() &&
+        if ((!Stargate.getGateConfig().protectEntrance() &&
                 !Stargate.getGateConfig().verifyPortals())) {
             return;
         }
@@ -70,11 +69,8 @@ public class BlockEventListener implements Listener {
      *
      * @param event <p>The triggered event</p>
      */
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onSignChange(@NotNull SignChangeEvent event) {
-        if (event.isCancelled()) {
-            return;
-        }
         Player player = event.getPlayer();
         Block block = event.getBlock();
         //Ignore normal signs
@@ -101,14 +97,12 @@ public class BlockEventListener implements Listener {
                 portal::drawSign, 1);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockPlace(@NotNull BlockPlaceEvent event) {
-        if (event.isCancelled() || !Stargate.getGateConfig().protectEntrance()) {
+        if (!Stargate.getGateConfig().protectEntrance()) {
             return;
         }
         Block block = event.getBlock();
-        Player player = event.getPlayer();
-
         Portal portal = PortalHandler.getByEntrance(block);
         if (portal != null) {
             //Prevent blocks from being placed in the entrance, if protectEntrance is enabled, as breaking the block 
@@ -122,11 +116,8 @@ public class BlockEventListener implements Listener {
      *
      * @param event <p>The triggered event</p>
      */
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockBreak(@NotNull BlockBreakEvent event) {
-        if (event.isCancelled()) {
-            return;
-        }
         Block block = event.getBlock();
         Player player = event.getPlayer();
 
@@ -220,7 +211,7 @@ public class BlockEventListener implements Listener {
      *
      * @param event <p>The event to check and possibly cancel</p>
      */
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBlockPhysics(@NotNull BlockPhysicsEvent event) {
         Block block = event.getBlock();
         Portal portal = null;
@@ -240,12 +231,12 @@ public class BlockEventListener implements Listener {
      *
      * @param event <p>The event to check and possibly cancel</p>
      */
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBlockFromTo(@NotNull BlockFromToEvent event) {
         Portal portal = PortalHandler.getByEntrance(event.getBlock());
 
-        if (portal != null) {
-            event.setCancelled((event.getBlock().getY() == event.getToBlock().getY()));
+        if (portal != null && event.getBlock().getY() == event.getToBlock().getY()) {
+            event.setCancelled(true);
         }
     }
 
@@ -254,7 +245,7 @@ public class BlockEventListener implements Listener {
      *
      * @param event <p>The event to check and possibly cancel</p>
      */
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPistonExtend(@NotNull BlockPistonExtendEvent event) {
         cancelPistonEvent(event, event.getBlocks());
     }
@@ -264,7 +255,7 @@ public class BlockEventListener implements Listener {
      *
      * @param event <p>The event to check and possibly cancel</p>
      */
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPistonRetract(@NotNull BlockPistonRetractEvent event) {
         if (!event.isSticky()) {
             return;
