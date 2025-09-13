@@ -2,6 +2,7 @@ package net.knarcraft.stargate.portal;
 
 import net.knarcraft.stargate.Stargate;
 import net.knarcraft.stargate.config.Message;
+import net.knarcraft.stargate.config.SGFormatBuilder;
 import net.knarcraft.stargate.config.material.BukkitTagSpecifier;
 import net.knarcraft.stargate.container.BlockLocation;
 import net.knarcraft.stargate.container.RelativeBlockVector;
@@ -148,13 +149,13 @@ public class PortalHandler {
             return true;
         }
         if (!PermissionHelper.hasPermission(player, "stargate.admin.bungee")) {
-            Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.BUNGEE_CREATION_DENIED));
+            new SGFormatBuilder(Message.BUNGEE_CREATION_DENIED).error(player);
             return false;
         } else if (!Stargate.getGateConfig().enableBungee()) {
-            Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.BUNGEE_DISABLED));
+            new SGFormatBuilder(Message.BUNGEE_DISABLED).error(player);
             return false;
         } else if (destinationName.isEmpty() || network.isEmpty()) {
-            Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.BUNGEE_MISSING_INFO));
+            new SGFormatBuilder(Message.BUNGEE_MISSING_INFO).error(player);
             return false;
         }
         return true;

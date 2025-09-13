@@ -1,9 +1,10 @@
 package net.knarcraft.stargate.utility;
 
-import net.knarcraft.knarlib.formatting.StringFormatter;
+import net.knarcraft.knarlib.formatting.FormatBuilder;
 import net.knarcraft.stargate.Stargate;
 import net.knarcraft.stargate.config.EconomyConfig;
 import net.knarcraft.stargate.config.Message;
+import net.knarcraft.stargate.config.SGFormatBuilder;
 import net.knarcraft.stargate.portal.Portal;
 import net.knarcraft.stargate.portal.property.PortalOwner;
 import net.milkbowl.vault.economy.Economy;
@@ -82,9 +83,7 @@ public final class EconomyHelper {
      * @param earnings    <p>The amount the owner earned</p>
      */
     public static void sendObtainMessage(@NotNull String portalName, @NotNull Player portalOwner, int earnings) {
-        String obtainedMsg = Stargate.getString(Message.ECONOMY_OBTAINED);
-        obtainedMsg = replacePlaceholders(obtainedMsg, portalName, earnings);
-        Stargate.getMessageSender().sendSuccessMessage(portalOwner, obtainedMsg);
+        replacePlaceholders(new SGFormatBuilder(Message.ECONOMY_OBTAINED), portalName, earnings).success(portalOwner);
     }
 
     /**
@@ -95,9 +94,7 @@ public final class EconomyHelper {
      * @param cost       <p>The cost of the interaction</p>
      */
     public static void sendDeductMessage(@NotNull String portalName, @NotNull Player player, int cost) {
-        String deductMsg = Stargate.getString(Message.ECONOMY_DEDUCTED);
-        deductMsg = replacePlaceholders(deductMsg, portalName, cost);
-        Stargate.getMessageSender().sendSuccessMessage(player, deductMsg);
+        replacePlaceholders(new SGFormatBuilder(Message.ECONOMY_DEDUCTED), portalName, cost).success(player);
     }
 
     /**
@@ -108,9 +105,7 @@ public final class EconomyHelper {
      * @param cost       <p>The cost of the interaction</p>
      */
     public static void sendInsufficientFundsMessage(@NotNull String portalName, @NotNull Player player, int cost) {
-        String inFundMsg = Stargate.getString(Message.ECONOMY_INSUFFICIENT);
-        inFundMsg = replacePlaceholders(inFundMsg, portalName, cost);
-        Stargate.getMessageSender().sendErrorMessage(player, inFundMsg);
+        replacePlaceholders(new SGFormatBuilder(Message.ECONOMY_INSUFFICIENT), portalName, cost).error(player);
     }
 
     /**
@@ -121,9 +116,7 @@ public final class EconomyHelper {
      * @param cost       <p>The amount the user has to pay for destroying the portal. (expects a negative value)</p>
      */
     public static void sendRefundMessage(@NotNull String portalName, @NotNull Player player, int cost) {
-        String refundMsg = Stargate.getString(Message.ECONOMY_REFUNDED);
-        refundMsg = replacePlaceholders(refundMsg, portalName, -cost);
-        Stargate.getMessageSender().sendSuccessMessage(player, refundMsg);
+        replacePlaceholders(new SGFormatBuilder(Message.ECONOMY_REFUNDED), portalName, -cost).success(player);
     }
 
     /**
@@ -272,17 +265,16 @@ public final class EconomyHelper {
     }
 
     /**
-     * Replaces the cost and portal variables in a string
+     * Replaces the cost and portal variables in a format builder
      *
-     * @param message    <p>The message to replace variables in</p>
+     * @param builder    <p>The format builder to replace variables for</p>
      * @param portalName <p>The name of the relevant portal</p>
      * @param cost       <p>The cost for a given interaction</p>
-     * @return <p>The same string with cost and portal variables replaced</p>
+     * @return <p>The same format builder</p>
      */
-    @NotNull
-    private static String replacePlaceholders(@NotNull String message, @NotNull String portalName, int cost) {
-        return StringFormatter.replacePlaceholders(message, new String[]{"%cost%", "%portal%"},
-                new String[]{Stargate.getEconomyConfig().format(cost), portalName});
+    private static FormatBuilder replacePlaceholders(@NotNull FormatBuilder builder, @NotNull String portalName, int cost) {
+        builder.replace("%cost%", Stargate.getEconomyConfig().format(cost)).replace("%portal%", portalName);
+        return builder;
     }
 
 }

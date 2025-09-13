@@ -6,6 +6,7 @@ import net.knarcraft.stargate.config.ConfigTag;
 import net.knarcraft.stargate.config.DynmapManager;
 import net.knarcraft.stargate.config.Message;
 import net.knarcraft.stargate.config.OptionDataType;
+import net.knarcraft.stargate.config.SGFormatBuilder;
 import net.knarcraft.stargate.portal.Portal;
 import net.knarcraft.stargate.portal.PortalRegistry;
 import net.knarcraft.stargate.portal.PortalSignDrawer;
@@ -32,7 +33,7 @@ public class CommandConfig implements CommandExecutor {
                              @NotNull String[] args) {
         if (commandSender instanceof Player player) {
             if (!player.hasPermission("stargate.admin.config")) {
-                Stargate.getMessageSender().sendErrorMessage(commandSender, "Permission Denied");
+                new SGFormatBuilder("Permission Denied").error(commandSender);
                 return true;
             }
         }
@@ -69,7 +70,7 @@ public class CommandConfig implements CommandExecutor {
      */
     private void updateConfigValue(@NotNull ConfigOption selectedOption, @NotNull CommandSender commandSender,
                                    @NotNull String value) {
-        FileConfiguration configuration = Stargate.getInstance().getConfiguration();
+        FileConfiguration configuration = Stargate.getInstance().getConfig();
 
         //Validate any sign colors
         if (ConfigTag.COLOR.isTagged(selectedOption)) {
@@ -168,12 +169,11 @@ public class CommandConfig implements CommandExecutor {
      */
     private void updateListConfigValue(@NotNull ConfigOption selectedOption, @NotNull CommandSender commandSender,
                                        @NotNull String[] arguments) {
-        FileConfiguration configuration = Stargate.getInstance().getConfiguration();
+        FileConfiguration configuration = Stargate.getInstance().getConfig();
 
         if (selectedOption == ConfigOption.PER_SIGN_COLORS) {
             if (arguments.length < 4) {
-                Stargate.getMessageSender().sendErrorMessage(commandSender, "Usage: /sg config perSignColors " +
-                        "<SIGN_TYPE> <MAIN_COLOR> <HIGHLIGHTING_COLOR>");
+                new SGFormatBuilder("Usage: /sg config perSignColors <SIGN_TYPE> <MAIN_COLOR> <HIGHLIGHTING_COLOR>").error(commandSender);
                 return;
             }
 
@@ -200,7 +200,7 @@ public class CommandConfig implements CommandExecutor {
     private String parsePerSignColorInput(@NotNull CommandSender commandSender, @NotNull String[] arguments) {
         //Make sure the sign type is an actual sign
         if (Material.matchMaterial(arguments[1] + "_SIGN") == null) {
-            Stargate.getMessageSender().sendErrorMessage(commandSender, "The given sign type is invalid");
+            new SGFormatBuilder("The given sign type is invalid").error(commandSender);
             return null;
         }
         String colorString = arguments[1] + ":";
@@ -213,7 +213,7 @@ public class CommandConfig implements CommandExecutor {
             if (validatePerSignColor(arguments[i + 2])) {
                 newColors[i] = arguments[i + 2];
             } else {
-                Stargate.getMessageSender().sendErrorMessage(commandSender, errorMessage[i]);
+                new SGFormatBuilder(errorMessage[i]).error(commandSender);
                 return null;
             }
         }
@@ -265,7 +265,7 @@ public class CommandConfig implements CommandExecutor {
         //Save the config file and reload if necessary
         Stargate.getInstance().saveConfig();
 
-        Stargate.getMessageSender().sendSuccessMessage(commandSender, "Config updated");
+        new SGFormatBuilder("Config updated").success(commandSender);
 
         //Reload whatever is necessary
         reloadIfNecessary(commandSender, selectedOption);

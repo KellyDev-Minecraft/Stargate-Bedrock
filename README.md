@@ -91,8 +91,8 @@ permissions), so you only need the most permissive one.
 <details>
     <summary>The full list of permission nodes may be found below: (Click to expand)</summary>
 
-Note: `-` is used to show inheritance, such as `stargate.use` being a parent of `stargate.world`, `stargate.network`, and
-`stargate.server`, thus giving all permissions of the indented items following the unindented node.
+Note: `-` is used to show inheritance, such as `stargate.use` being a parent of `stargate.world`, `stargate.network`,
+and `stargate.server`, thus giving all permissions of the indented items following the unindented node.
 
 | Node                                      | Description                                                                                                                                                     |
 |-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|

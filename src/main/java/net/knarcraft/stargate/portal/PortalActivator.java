@@ -2,6 +2,7 @@ package net.knarcraft.stargate.portal;
 
 import net.knarcraft.stargate.Stargate;
 import net.knarcraft.stargate.config.Message;
+import net.knarcraft.stargate.config.SGFormatBuilder;
 import net.knarcraft.stargate.event.StargateActivateEvent;
 import net.knarcraft.stargate.event.StargateDeactivateEvent;
 import net.knarcraft.stargate.utility.ListHelper;
@@ -259,7 +260,7 @@ public class PortalActivator {
         //If no destinations are available, just tell the player and quit
         if (destinations.isEmpty()) {
             if (!portal.getOptions().isQuiet()) {
-                Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.NO_DESTINATION));
+                new SGFormatBuilder(Message.NO_DESTINATION).error(player);
             }
             return;
         }

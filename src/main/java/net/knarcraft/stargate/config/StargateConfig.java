@@ -1,7 +1,9 @@
 package net.knarcraft.stargate.config;
 
+import net.knarcraft.knarlib.formatting.StringFormatter;
+import net.knarcraft.knarlib.formatting.Translator;
 import net.knarcraft.knarlib.property.ColorConversion;
-import net.knarcraft.knarlib.util.FileHelper;
+import net.knarcraft.knarlib.util.ConfigHelper;
 import net.knarcraft.stargate.Stargate;
 import net.knarcraft.stargate.container.BlockChangeRequest;
 import net.knarcraft.stargate.listener.BungeeCordListener;
@@ -14,16 +16,12 @@ import net.knarcraft.stargate.utility.PortalFileHelper;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.MemorySection;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.messaging.Messenger;
 import org.dynmap.DynmapAPI;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -44,7 +42,6 @@ public final class StargateConfig {
     private final HashSet<String> managedWorlds = new HashSet<>();
 
     private StargateGateConfig stargateGateConfig;
-    private MessageSender messageSender;
     private final LanguageLoader languageLoader;
     private EconomyConfig economyConfig;
     private final Logger logger;
@@ -100,7 +97,9 @@ public final class StargateConfig {
         languageLoader.setChosenLanguage(languageName);
         languageLoader.reload();
 
-        messageSender = new MessageSender(languageLoader);
+        // Update prefix of the format builder
+        SGFormatBuilder.setStringFormatter(getStringFormatter());
+
         if (isDebuggingEnabled()) {
             languageLoader.debug();
         }
@@ -253,7 +252,10 @@ public final class StargateConfig {
         //Reload portal markers
         DynmapManager.addAllPortalMarkers();
 
-        messageSender.sendErrorMessage(sender, languageLoader.getString(Message.RELOADED));
+        // Update prefix of the format builder
+        SGFormatBuilder.setStringFormatter(getStringFormatter());
+
+        new SGFormatBuilder(Message.RELOADED).error(sender);
     }
 
     /**
@@ -398,14 +400,14 @@ public final class StargateConfig {
      */
     public void loadConfig() {
         Stargate.getInstance().reloadConfig();
-        FileConfiguration newConfig = Stargate.getInstance().getConfiguration();
+        FileConfiguration newConfig = Stargate.getInstance().getConfig();
 
         boolean isMigrating = false;
         if (newConfig.getString("lang") != null || newConfig.getString("economy.taxAccount") == null) {
-            migrateConfig(newConfig);
+            ConfigHelper.migrateConfig(Stargate.getInstance());
             isMigrating = true;
             Stargate.getInstance().reloadConfig();
-            newConfig = Stargate.getInstance().getConfiguration();
+            newConfig = Stargate.getInstance().getConfig();
         }
 
         //Copy missing default values if any values are missing
@@ -499,79 +501,6 @@ public final class StargateConfig {
     }
 
     /**
-     * Changes all configuration values from the old name to the new name
-     *
-     * @param currentConfiguration <p>The current config to back up</p>
-     */
-    private void migrateConfig(@NotNull FileConfiguration currentConfiguration) {
-        String debugPath = "StargateConfig::migrateConfig";
-
-        //Save the old config just in case something goes wrong
-        try {
-            currentConfiguration.save(new File(dataFolderPath, "config.yml.old"));
-        } catch (IOException exception) {
-            Stargate.debug(debugPath, "Unable to save old backup and do migration");
-            return;
-        }
-
-        //Load old and new configuration
-        Stargate.getInstance().reloadConfig();
-        FileConfiguration oldConfiguration = Stargate.getInstance().getConfig();
-        InputStream configStream = FileHelper.getInputStreamForInternalFile("/config.yml");
-        if (configStream == null) {
-            Stargate.logSevere("Could not migrate the configuration, as the internal configuration could not be read!");
-            return;
-        }
-        YamlConfiguration newConfiguration = StargateYamlConfiguration.loadConfiguration(
-                FileHelper.getBufferedReaderFromInputStream(configStream));
-
-        //Read all available config migrations
-        Map<String, String> migrationFields;
-        try {
-            InputStream migrationStream = FileHelper.getInputStreamForInternalFile("/config-migrations.txt");
-            if (migrationStream == null) {
-                Stargate.logSevere("Could not migrate the configuration, as the internal migration paths could not be read!");
-                return;
-            }
-            migrationFields = FileHelper.readKeyValuePairs(FileHelper.getBufferedReaderFromInputStream(migrationStream),
-                    "=", ColorConversion.NORMAL);
-        } catch (IOException exception) {
-            Stargate.debug(debugPath, "Unable to load config migration file");
-            return;
-        }
-
-        //Replace old config names with the new ones
-        for (String key : migrationFields.keySet()) {
-            if (oldConfiguration.contains(key)) {
-                String newPath = migrationFields.get(key);
-                Object oldValue = oldConfiguration.get(key);
-                if (!newPath.trim().isEmpty()) {
-                    oldConfiguration.set(newPath, oldValue);
-                }
-                oldConfiguration.set(key, null);
-            }
-        }
-
-        // Copy all keys to the new config
-        for (String key : oldConfiguration.getKeys(true)) {
-            if (oldConfiguration.get(key) instanceof MemorySection) {
-                continue;
-            }
-            Stargate.debug(debugPath, "Setting " + key + " to " +
-                    oldConfiguration.get(key));
-            newConfiguration.set(key, oldConfiguration.get(key));
-        }
-
-        try {
-            newConfiguration.save(new File(dataFolderPath, "config.yml"));
-        } catch (IOException exception) {
-            Stargate.debug(debugPath, "Unable to save migrated config");
-        }
-
-        Stargate.getInstance().reloadConfig();
-    }
-
-    /**
      * Loads economy from Vault
      */
     private void setupVaultEconomy() {
@@ -579,7 +508,7 @@ public final class StargateConfig {
         if (economyConfig.setupEconomy(Stargate.getPluginManager()) && economyConfig.getEconomy() != null &&
                 economyConfig.getVault() != null) {
             String vaultVersion = economyConfig.getVault().getDescription().getVersion();
-            Stargate.logInfo(Stargate.replacePlaceholders(Stargate.getString(Message.VAULT_LOADED), "%version%", vaultVersion));
+            Stargate.logInfo(new SGFormatBuilder(Message.VAULT_LOADED).replace("%version%", vaultVersion).toString());
         }
     }
 
@@ -643,16 +572,6 @@ public final class StargateConfig {
     }
 
     /**
-     * Gets the sender for sending messages to players
-     *
-     * @return <p>The sender for sending messages to players</p>
-     */
-    @NotNull
-    public MessageSender getMessageSender() {
-        return messageSender;
-    }
-
-    /**
      * Gets the language loader containing translated strings
      *
      * @return <p>The language loader</p>
@@ -660,6 +579,44 @@ public final class StargateConfig {
     @NotNull
     public LanguageLoader getLanguageLoader() {
         return languageLoader;
+    }
+
+    /**
+     * Gets the string formatter to use
+     */
+    @NotNull
+    private StringFormatter getStringFormatter() {
+        // In order to allow automatic customization of prefix color, parse it properly
+        String rawPrefix = getLanguageLoader().getString(Message.PREFIX);
+        String colorPattern = "(?:[&§][a-fA-F0-9klmnor]|&?#[0-9a-fA-F]{6}|§x(?:§[a-fA-F0-9]){6})*";
+        Pattern pattern = Pattern.compile("(" + colorPattern + "\\[" + colorPattern + ")(\\w+)(" +
+                colorPattern + "]" + colorPattern + ")");
+
+        return getStringFormatter(rawPrefix, pattern);
+    }
+
+    /**
+     * Gets the string formatter to use
+     *
+     * @param rawPrefix <p>The formatter prefix to parse</p>
+     * @param pattern   <p>The pattern to use for parsing</p>
+     */
+    private static @NotNull StringFormatter getStringFormatter(String rawPrefix, Pattern pattern) {
+        String prefix = rawPrefix;
+        String namePrefix = "[";
+        String nameSuffix = "]";
+        Matcher matcher = pattern.matcher(rawPrefix);
+        if (matcher.find()) {
+            namePrefix = matcher.group(1).trim();
+            prefix = matcher.group(2).trim();
+            nameSuffix = matcher.group(3).trim();
+        }
+
+        StringFormatter stringFormatter = new StringFormatter(prefix, new Translator());
+        stringFormatter.setColorConversion(ColorConversion.RGB);
+        stringFormatter.setNamePrefix(namePrefix);
+        stringFormatter.setNameSuffix(nameSuffix);
+        return stringFormatter;
     }
 
 }

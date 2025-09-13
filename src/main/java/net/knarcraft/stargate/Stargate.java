@@ -1,14 +1,17 @@
 package net.knarcraft.stargate;
 
+import net.knarcraft.knarlib.formatting.StringFormatter;
+import net.knarcraft.knarlib.formatting.Translator;
+import net.knarcraft.knarlib.plugin.ConfigCommentPlugin;
+import net.knarcraft.knarlib.util.ConfigHelper;
 import net.knarcraft.knarlib.util.UpdateChecker;
 import net.knarcraft.stargate.command.CommandStarGate;
 import net.knarcraft.stargate.command.StarGateTabCompleter;
 import net.knarcraft.stargate.config.EconomyConfig;
 import net.knarcraft.stargate.config.Message;
-import net.knarcraft.stargate.config.MessageSender;
+import net.knarcraft.stargate.config.SGFormatBuilder;
 import net.knarcraft.stargate.config.StargateConfig;
 import net.knarcraft.stargate.config.StargateGateConfig;
-import net.knarcraft.stargate.config.StargateYamlConfiguration;
 import net.knarcraft.stargate.container.BlockChangeRequest;
 import net.knarcraft.stargate.container.ChunkUnloadRequest;
 import net.knarcraft.stargate.container.ControlBlockUpdateRequest;
@@ -29,20 +32,14 @@ import net.knarcraft.stargate.thread.ControlBlocksUpdateThread;
 import net.knarcraft.stargate.thread.StarGateThread;
 import net.knarcraft.stargate.utility.BStatsHelper;
 import org.bukkit.Bukkit;
-import org.bukkit.Server;
-import org.bukkit.command.PluginCommand;
-import org.bukkit.configuration.InvalidConfigurationException;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.java.JavaPluginLoader;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -55,7 +52,7 @@ Copyright (C) 2011 Shaun (sturmeh)
 Copyright (C) 2011 Dinnerbone
 Copyright (C) 2011-2013 Steven "Drakia" Scott <Contact@TheDgtl.net>
 Copyright (C) 2015-2020 Michael Smith (PseudoKnight)
-Copyright (C) 2021-2022 Kristian Knarvik (EpicKnarvik97)
+Copyright (C) 2021-2025 Kristian Knarvik (EpicKnarvik97)
 
 The following license notice applies to all source and resource files in the Stargate project:
 
@@ -77,7 +74,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * The main class of the Stargate plugin
  */
 @SuppressWarnings("unused")
-public class Stargate extends JavaPlugin {
+public class Stargate extends ConfigCommentPlugin {
 
     private static final String CONFIG_FILE_NAME = "config.yml";
     private static final Queue<BlockChangeRequest> controlBlockUpdateRequestQueue = new LinkedList<>();
@@ -90,7 +87,6 @@ public class Stargate extends JavaPlugin {
     private static PluginManager pluginManager;
     private static StargateConfig stargateConfig;
     private static String updateAvailable = null;
-    private FileConfiguration configuration;
 
     /**
      * Empty constructor necessary for Spigot
@@ -182,16 +178,6 @@ public class Stargate extends JavaPlugin {
     @NotNull
     public static Queue<ControlBlockUpdateRequest> getButtonUpdateRequestQueue() {
         return CONTROL_BLOCK_UPDATE_REQUEST_QUEUE;
-    }
-
-    /**
-     * Gets the sender for sending messages to players
-     *
-     * @return <p>The sender for sending messages to players</p>
-     */
-    @NotNull
-    public static MessageSender getMessageSender() {
-        return stargateConfig.getMessageSender();
     }
 
     /**
@@ -323,16 +309,6 @@ public class Stargate extends JavaPlugin {
     }
 
     /**
-     * Gets a translated string given its message key
-     *
-     * @param name <p>The name/key of the string to get</p>
-     * @return <p>The full translated string</p>
-     */
-    public static @NotNull String getString(@NotNull Message name) {
-        return stargateConfig.getLanguageLoader().getString(name);
-    }
-
-    /**
      * Gets a backup string given its message key
      *
      * @param name <p>The name/key of the string to get</p>
@@ -340,19 +316,6 @@ public class Stargate extends JavaPlugin {
      */
     public static @NotNull String getBackupString(@NotNull Message name) {
         return stargateConfig.getLanguageLoader().getBackupString(name);
-    }
-
-    /**
-     * Replaces a variable in a string
-     *
-     * @param input  <p>The input containing the variables</p>
-     * @param search <p>The variable to replace</p>
-     * @param value  <p>The replacement value</p>
-     * @return <p>The input string with the search replaced with value</p>
-     */
-    @NotNull
-    public static String replacePlaceholders(@NotNull String input, @NotNull String search, @NotNull String value) {
-        return input.replace(search, value);
     }
 
     /**
@@ -375,37 +338,6 @@ public class Stargate extends JavaPlugin {
         return stargateConfig.getEconomyConfig();
     }
 
-    /**
-     * Gets the raw configuration
-     *
-     * @return <p>The raw configuration</p>
-     */
-    @NotNull
-    public FileConfiguration getConfiguration() {
-        return this.configuration;
-    }
-
-    @Override
-    public void reloadConfig() {
-        super.reloadConfig();
-        this.configuration = new StargateYamlConfiguration();
-        try {
-            this.configuration.load(new File(getDataFolder(), CONFIG_FILE_NAME));
-        } catch (IOException | InvalidConfigurationException exception) {
-            logSevere("Unable to load the configuration! Message: " + exception.getMessage());
-        }
-    }
-
-    @Override
-    public void saveConfig() {
-        super.saveConfig();
-        try {
-            this.configuration.save(new File(getDataFolder(), CONFIG_FILE_NAME));
-        } catch (IOException exception) {
-            logSevere("Unable to save the configuration! Message: " + exception.getMessage());
-        }
-    }
-
     @Override
     public void onDisable() {
         PortalHandler.closeAllPortals();
@@ -420,19 +352,12 @@ public class Stargate extends JavaPlugin {
     public void onEnable() {
         Stargate.stargate = this;
         Stargate.logger = getLogger();
-        this.saveDefaultConfig();
-        this.getConfig();
+        ConfigHelper.saveDefaults(this);
         PluginDescriptionFile pluginDescriptionFile = this.getDescription();
         pluginManager = getServer().getPluginManager();
-        this.configuration = new StargateYamlConfiguration();
-        try {
-            this.configuration.load(new File(getDataFolder(), CONFIG_FILE_NAME));
-        } catch (IOException | InvalidConfigurationException exception) {
-            getLogger().log(Level.SEVERE, exception.getMessage());
-        }
-        this.configuration.options().copyDefaults(true);
 
-        Server server = getServer();
+        // Set temporary string formatter before strings are loaded
+        SGFormatBuilder.setStringFormatter(new StringFormatter(this.getDescription().getName(), new Translator()));
 
         try {
             stargateConfig = new StargateConfig(logger);
@@ -456,7 +381,7 @@ public class Stargate extends JavaPlugin {
         //Run necessary threads
         runThreads();
 
-        this.registerCommands();
+        registerCommand("stargate", new CommandStarGate(this), new StarGateTabCompleter());
 
         //Check for any available updates
         UpdateChecker.checkForUpdate(this, "https://api.spigotmc.org/legacy/update.php?resource=109355",
@@ -491,17 +416,6 @@ public class Stargate extends JavaPlugin {
         pluginManager.registerEvents(new PluginEventListener(this), this);
         pluginManager.registerEvents(new TeleportEventListener(), this);
         pluginManager.registerEvents(new EntitySpawnListener(), this);
-    }
-
-    /**
-     * Registers a command for this plugin
-     */
-    private void registerCommands() {
-        PluginCommand stargateCommand = this.getCommand("stargate");
-        if (stargateCommand != null) {
-            stargateCommand.setExecutor(new CommandStarGate(this));
-            stargateCommand.setTabCompleter(new StarGateTabCompleter());
-        }
     }
 
     /**

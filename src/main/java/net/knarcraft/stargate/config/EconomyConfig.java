@@ -192,10 +192,10 @@ public final class EconomyConfig {
                 this.vault = vault;
                 return true;
             } else {
-                Stargate.logInfo(Stargate.getString(Message.ECONOMY_LOAD_ERROR));
+                Stargate.logInfo(new SGFormatBuilder(Message.ECONOMY_LOAD_ERROR).toString());
             }
         } else {
-            Stargate.logInfo(Stargate.getString(Message.VAULT_LOAD_ERROR));
+            Stargate.logInfo(new SGFormatBuilder(Message.VAULT_LOAD_ERROR).toString());
         }
         configOptions.put(ConfigOption.USE_ECONOMY, false);
         return false;

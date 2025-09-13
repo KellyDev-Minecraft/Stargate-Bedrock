@@ -1,6 +1,7 @@
 package net.knarcraft.stargate.command;
 
 import net.knarcraft.stargate.Stargate;
+import net.knarcraft.stargate.config.SGFormatBuilder;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -17,7 +18,7 @@ public class CommandReload implements CommandExecutor {
                              @NotNull String[] args) {
         if (commandSender instanceof Player player) {
             if (!player.hasPermission("stargate.admin.reload")) {
-                Stargate.getMessageSender().sendErrorMessage(commandSender, "Permission Denied");
+                new SGFormatBuilder("Permission Denied").error(commandSender);
                 return true;
             }
         }

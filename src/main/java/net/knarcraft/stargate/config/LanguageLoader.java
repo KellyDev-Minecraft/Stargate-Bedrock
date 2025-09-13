@@ -113,10 +113,10 @@ public final class LanguageLoader {
     private void updateLanguage(@NotNull String language) {
         Map<Message, String> currentLanguageValues = load(language);
 
-        InputStream inputStream = getClass().getResourceAsStream("/lang/" + language + ".txt");
+        InputStream inputStream = FileHelper.getInputStreamForInternalFile("/lang/" + language + ".txt");
         if (inputStream == null) {
-            Stargate.logInfo(String.format("The language %s is not available. Falling back to english, You can add a " +
-                    "custom language by creating a new text file in the lang directory.", language));
+            Stargate.logInfo(String.format("Unable to find internal language file for %s. This will normally not " +
+                    "cause any problems, except newly added translatable strings won't be automatically added", language));
             Stargate.debug("LanguageLoader::updateLanguage", String.format("Unable to load /lang/%s.txt", language));
             return;
         }
@@ -209,6 +209,7 @@ public final class LanguageLoader {
      * @param lang <p>The language to load</p>
      * @return <p>A mapping between loaded string indexes and the strings to display</p>
      */
+    @Nullable
     private Map<Message, String> load(@NotNull String lang) {
         return load(lang, null);
     }
@@ -220,6 +221,7 @@ public final class LanguageLoader {
      * @param inputStream <p>An optional input stream to use. Defaults to using a file input stream</p>
      * @return <p>A mapping between loaded string indexes and the strings to display</p>
      */
+    @Nullable
     private Map<Message, String> load(@NotNull String lang, @Nullable InputStream inputStream) {
         BufferedReader bufferedReader;
         try {
@@ -257,6 +259,12 @@ public final class LanguageLoader {
         }
     }
 
+    /**
+     * Converts a map from string key to message into a map from message key to message
+     *
+     * @param configurationStrings <p>The map to convert</p>
+     * @return <p>The converted map</p>
+     */
     @NotNull
     private Map<Message, String> fromStringMap(@NotNull Map<String, String> configurationStrings) {
         Map<Message, String> output = new EnumMap<>(Message.class);

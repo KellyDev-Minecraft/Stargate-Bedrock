@@ -1,9 +1,10 @@
 package net.knarcraft.stargate.listener;
 
+import net.knarcraft.knarlib.formatting.FormatBuilder;
 import net.knarcraft.knarlib.util.UpdateChecker;
 import net.knarcraft.stargate.Stargate;
 import net.knarcraft.stargate.config.Message;
-import net.knarcraft.stargate.config.MessageSender;
+import net.knarcraft.stargate.config.SGFormatBuilder;
 import net.knarcraft.stargate.container.BlockLocation;
 import net.knarcraft.stargate.portal.Portal;
 import net.knarcraft.stargate.portal.PortalActivator;
@@ -72,7 +73,7 @@ public class PlayerEventListener implements Listener {
         if (availableUpdate != null && Stargate.getStargateConfig().alertAdminsAboutUpdates() &&
                 player.hasPermission("stargate.admin")) {
             String updateMessage = UpdateChecker.getUpdateAvailableString(availableUpdate, Stargate.getPluginVersion());
-            Stargate.getMessageSender().sendErrorMessage(player, updateMessage);
+            new SGFormatBuilder(updateMessage).error(player);
         }
 
         if (!Stargate.getGateConfig().enableBungee()) {
@@ -162,7 +163,7 @@ public class PlayerEventListener implements Listener {
             new PlayerTeleporter(destination, player).teleportPlayer(entrancePortal, event);
         }
         if (!entrancePortal.getOptions().isQuiet()) {
-            Stargate.getMessageSender().sendSuccessMessage(player, Stargate.getString(Message.TELEPORTED));
+            new SGFormatBuilder(Message.TELEPORTED).success(player);
         }
         entrancePortal.getPortalOpener().closePortal(false);
     }
@@ -204,7 +205,7 @@ public class PlayerEventListener implements Listener {
         //Decide if the user should be teleported to another bungee server
         if (entrancePortal.getOptions().isBungee()) {
             if (BungeeHelper.bungeeTeleport(player, entrancePortal, event) && !entrancePortal.getOptions().isQuiet()) {
-                Stargate.getMessageSender().sendSuccessMessage(player, Stargate.getString(Message.TELEPORTED));
+                new SGFormatBuilder(Message.TELEPORTED).success(player);
             }
             return false;
         }
@@ -405,7 +406,7 @@ public class PlayerEventListener implements Listener {
 
         if (PermissionHelper.portalAccessDenied(player, portal, deny)) {
             if (!portal.getOptions().isQuiet()) {
-                Stargate.getMessageSender().sendErrorMessage(player, Stargate.getString(Message.ACCESS_DENIED));
+                new SGFormatBuilder(Message.ACCESS_DENIED).error(player);
             }
             return true;
         }
@@ -476,19 +477,16 @@ public class PlayerEventListener implements Listener {
 
         //Display portal information as a portal without a sign does not display any
         if (portal.getOptions().hasNoSign() && (!portal.getOptions().isQuiet() || player.isSneaking())) {
-            MessageSender sender = Stargate.getMessageSender();
-            sender.sendSuccessMessage(player, ChatColor.GOLD + Stargate.getString(Message.PORTAL_INFO_TITLE));
-            sender.sendSuccessMessage(player, Stargate.replacePlaceholders(Stargate.getString(Message.PORTAL_INFO_NAME),
-                    "%name%", portal.getName()));
-            sender.sendSuccessMessage(player, Stargate.replacePlaceholders(Stargate.getString(Message.PORTAL_INFO_DESTINATION),
-                    "%destination%", portal.getDestinationName()));
+            FormatBuilder builder = new SGFormatBuilder();
+            builder.append(ChatColor.GOLD).append(Message.PORTAL_INFO_TITLE).append("\n").
+                    append(Message.PORTAL_INFO_NAME).replace("%name%", portal.getName()).append("\n").
+                    append(Message.PORTAL_INFO_DESTINATION).replace("%destination%", portal.getDestinationName()).append("\n");
             if (portal.getOptions().isBungee()) {
-                sender.sendSuccessMessage(player, Stargate.replacePlaceholders(Stargate.getString(Message.PORTAL_INFO_SERVER),
-                        "%server%", portal.getNetwork()));
+                builder.append(Message.PORTAL_INFO_SERVER).replace("%server%", portal.getNetwork());
             } else {
-                sender.sendSuccessMessage(player, Stargate.replacePlaceholders(Stargate.getString(Message.PORTAL_INFO_NETWORK),
-                        "%network%", portal.getNetwork()));
+                builder.append(Message.PORTAL_INFO_NETWORK).replace("%network%", portal.getNetwork());
             }
+            builder.displayRaw(player);
         }
     }
 

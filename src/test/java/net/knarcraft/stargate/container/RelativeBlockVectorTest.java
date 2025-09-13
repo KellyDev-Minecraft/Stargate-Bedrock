@@ -1,7 +1,8 @@
 package net.knarcraft.stargate.container;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RelativeBlockVectorTest {
 
@@ -16,13 +17,13 @@ public class RelativeBlockVectorTest {
         for (int i = 0; i < 1000; i++) {
             int randomValue = getRandomNumber();
             RelativeBlockVector newVector = relativeBlockVector.addRight(randomValue);
-            Assertions.assertEquals(new RelativeBlockVector(right + randomValue, down, out), newVector);
+            assertEquals(new RelativeBlockVector(right + randomValue, down, out), newVector);
 
             newVector = relativeBlockVector.addOut(randomValue);
-            Assertions.assertEquals(new RelativeBlockVector(right, down, out + randomValue), newVector);
+            assertEquals(new RelativeBlockVector(right, down, out + randomValue), newVector);
 
             newVector = relativeBlockVector.addDown(randomValue);
-            Assertions.assertEquals(new RelativeBlockVector(right, down + randomValue, out), newVector);
+            assertEquals(new RelativeBlockVector(right, down + randomValue, out), newVector);
         }
     }
 
@@ -37,7 +38,7 @@ public class RelativeBlockVectorTest {
                     randomNumber3);
             RelativeBlockVector invertedBlockVector = new RelativeBlockVector(-randomNumber1, -randomNumber2,
                     -randomNumber3);
-            Assertions.assertEquals(invertedBlockVector, relativeBlockVector.invert());
+            assertEquals(invertedBlockVector, relativeBlockVector.invert());
         }
     }
 
