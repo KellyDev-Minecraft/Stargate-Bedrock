@@ -1,6 +1,9 @@
-target/
-.idea/
-*.secret
-*.db
-nbactions.xml
-stargate.iml
+# MacOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Bedrock Addon Builds
+*.mcaddon

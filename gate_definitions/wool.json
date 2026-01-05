@@ -1,0 +1,21 @@
+{
+    "id": "wool",
+    "format_version": "1.0.0",
+    "config": {
+        "portal-open": "minecraft:water",
+        "portal-closed": "minecraft:air",
+        "button": "minecraft:stone_button",
+        "toowner": "minecraft:false"
+    },
+    "materials": {
+        "X": "minecraft:wool",
+        "-": "minecraft:wool"
+    },
+    "layout": [
+        "XXXXX",
+        "X...X",
+        "-...-",
+        "X.*.X",
+        "XXXXX"
+    ]
+}

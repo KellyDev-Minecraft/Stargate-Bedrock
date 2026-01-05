@@ -1,0 +1,12 @@
+{
+    "format_version": "1.10",
+    "minecraft:item": {
+        "description": {
+            "identifier": "stargate:plan_book",
+            "category": "Items"
+        },
+        "components": {
+            "minecraft:icon": "book_written"
+        }
+    }
+}

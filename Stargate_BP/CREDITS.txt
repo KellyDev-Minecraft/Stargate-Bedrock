@@ -1,0 +1,12 @@
+Stargate Bedrock Addon
+Ported from Stargate (Bukkit Plugin)
+
+Original Copyrights:
+- Copyright (C) 2011 Shaun (sturmeh)
+- Copyright (C) 2011 Dinnerbone
+- Copyright (C) 2011-2013 Steven "Drakia" Scott <Contact@TheDgtl.net>
+- Copyright (C) 2015-2020 Michael Smith (PseudoKnight)
+- Copyright (C) 2021-2022 Kristian Knarvik (EpicKnarvik97)
+
+This project is licensed under the GNU Lesser General Public License Version 3.0.
+See LICENSE.txt for details.
