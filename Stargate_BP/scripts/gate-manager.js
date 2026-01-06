@@ -1,30 +1,51 @@
-import { world, BlockPermutation } from "@minecraft/server";
+import { world, BlockPermutation, system } from "@minecraft/server";
 import { GateDefinitions } from "./data/gate_definitions.js";
+import { ModalFormData, ActionFormData } from "@minecraft/server-ui";
 
 export class GateManager {
-    static checkAndActivateGate(buttonBlock, player) {
-        // 1. Get the block the button is attached to (support wall buttons)
-        // For simplicity, let's assume standard face-attached buttons for now or check permutations.
-        // Bedrock buttons have "facing_direction" state usually.
+    // --- SIGN BASED CREATION ---
+    static checkAndCreateGateFromSign(signBlock, player) {
+        // The sign is placed on the frame (usually). 
+        // We need to check the block BEHIND the sign (attached block).
+        const attachedBlock = this.getAttachedBlock(signBlock);
+        if (!attachedBlock) return;
 
-        const attachedBlock = this.getAttachedBlock(buttonBlock);
-        if (!attachedBlock) {
-            console.warn("Could not find attached block for button");
-            return;
-        }
-
-        player.sendMessage(`Checking gate on ${attachedBlock.typeId}...`);
+        console.warn(`Checking gate pattern on ${attachedBlock.typeId} attached to sign at ${signBlock.location.x}`);
 
         for (const gateDef of GateDefinitions) {
             const match = this.matchGatePattern(gateDef, attachedBlock);
             if (match) {
-                player.sendMessage(`Gate Pattern Matched: ${gateDef.id}!`);
-                this.createGate(match, player);
+                // Show Setup UI
+                this.showSetupUI(match, player, signBlock);
                 return;
             }
         }
 
+        // No match found
         player.sendMessage("No valid gate pattern found.");
+    }
+
+    // --- SIGN BASED INTERACTION ---
+    static handleSignInteraction(signBlock, player) {
+        // Find which gate owns this sign
+        const gate = this.findGateBySign(signBlock);
+        if (gate) {
+            this.showDialUI(gate, player);
+        }
+    }
+
+    static findGateBySign(signBlock) {
+        const allGates = this.getAllGatesMap();
+        for (const key in allGates) {
+            const gate = allGates[key];
+            if (gate.signLocation &&
+                gate.signLocation.x === signBlock.x &&
+                gate.signLocation.y === signBlock.y &&
+                gate.signLocation.z === signBlock.z) {
+                return gate;
+            }
+        }
+        return null;
     }
 
     static getAttachedBlock(buttonBlock) {
@@ -124,7 +145,10 @@ export class GateManager {
                 if (!block) return false;
 
                 // Match block type
-                if (!this.matchesMaterial(char, block, gateDef)) return false;
+                if (!this.matchesMaterial(char, block, gateDef)) {
+                    // console.warn(`Match failed at rel ${dLat},${dy}: expected ${char}, got ${block.typeId}`);
+                    return false;
+                }
             }
         }
         return true;
@@ -161,8 +185,17 @@ export class GateManager {
         // Handle tags (not supported yet locally, but we cleaned them in python)
         // Handle comma lists?
 
-        // Simple string check
-        if (block.typeId === expectedMat) return true;
+        // Fuzzy match for colored blocks (wool, concrete, etc.)
+        const blockId = block.typeId;
+        const expectedId = expectedMat.replace('minecraft:', '');
+
+        if (blockId.includes(expectedId)) return true;
+
+        // Special case: if it's the '.' (portal), allow portal-open material too
+        if (char === '.' || char === '*') {
+            const openMat = gateDef.config['portal-open'];
+            if (blockId === openMat || blockId.includes(openMat.replace('minecraft:', ''))) return true;
+        }
 
         // Allow AIR match if we expect AIR
         if (expectedMat === 'minecraft:air' && block.isAir) return true;
@@ -170,15 +203,152 @@ export class GateManager {
         return false;
     }
 
-    static createGate(match, player) {
-        // Verification success
-        // Fill portal blocks
-        // The match object has all the info we need.
+    static handleGateInteraction(match, player) {
+        const gateKey = this.getGateKey(match.anchorBlock);
+        const existingGate = this.getGateData(gateKey);
+
+        if (existingGate) {
+            this.showDialUI(existingGate, player);
+        } else {
+            this.showSetupUI(match, player);
+        }
+    }
+
+    static updateNetworkSigns(network) {
+        const allGates = this.getAllGatesMap();
+        const networkGates = Object.values(allGates).filter(g => g.network === network);
+        const names = networkGates.map(g => g.name);
+
+        for (const gate of networkGates) {
+            if (gate.signLocation) {
+                this.setSignText(gate.signLocation, gate.name, gate.network, names);
+            }
+        }
+    }
+
+    static setSignText(loc, name, network, targets) {
+        const dim = world.getDimension(loc.dim);
+        const block = dim.getBlock(loc);
+        if (!block) return;
+
+        // Ensure it's a sign
+        if (!block.typeId.includes("sign")) {
+            block.setType("minecraft:oak_wall_sign");
+            // We might need to handle rotation, but for now just place it.
+        }
+
+        const sign = block.getComponent("minecraft:sign");
+        if (sign) {
+            let text = `[${name}]\nNetwork: ${network}\n---\n`;
+            text += targets.filter(t => t !== name).slice(0, 2).join("\n");
+            sign.setText(text);
+        }
+    }
+
+    static async showDialUI(activeGate, player) {
+        const allGateKeys = this.getAllGates();
+        const targets = [];
+
+        for (const key of allGateKeys) {
+            if (key === this.getGateKey({ dimension: { id: activeGate.location.dim }, x: activeGate.location.x, y: activeGate.location.y, z: activeGate.location.z })) continue;
+
+            const gate = this.getGateData(key);
+            if (gate && gate.network === activeGate.network) {
+                targets.push(gate);
+            }
+        }
+
+        if (targets.length === 0) {
+            player.sendMessage(`No other gates found on network '${activeGate.network}'.`);
+            return;
+        }
+
+        const form = new ActionFormData()
+            .title(`Dial from ${activeGate.name}`)
+            .body(`Choose a destination on the '${activeGate.network}' network.`);
+
+        for (const target of targets) {
+            form.button(`${target.name}\n${target.location.dim.replace('minecraft:', '')}`);
+        }
+
+        const response = await form.show(player);
+        if (response.canceled) return;
+
+        const targetGate = targets[response.selection];
+        this.teleportPlayer(player, targetGate);
+    }
+
+    static teleportPlayer(player, target) {
+        // Simple teleportation logic
+        // Find an exit point. In the layout, '*' was the exit point.
+        // We should store the exit point in gateData.
+
+        const loc = target.location;
+        const dim = world.getDimension(loc.dim);
+
+        // Use a safe location near the anchor
+        player.teleport({
+            x: loc.x + (target.axis === 'x' ? 0 : 1), // Offset slightly to avoid being inside the frame
+            y: loc.y,
+            z: loc.z + (target.axis === 'z' ? 0 : 1)
+        }, {
+            dimension: dim
+        });
+
+        player.sendMessage(`Teleporting to ${target.name}...`);
+    }
+
+    static getGateKey(block) {
+        return `sg_${block.dimension.id}_${block.x}_${block.y}_${block.z}`;
+    }
+
+    static getGateData(key) {
+        const allGates = this.getAllGatesMap();
+        return allGates[key] || null;
+    }
+
+    static saveGateData(key, data) {
+        const allGates = this.getAllGatesMap();
+        allGates[key] = data;
+        world.setDynamicProperty("sg_all_gates", JSON.stringify(allGates));
+    }
+
+    static getAllGatesMap() {
+        const raw = world.getDynamicProperty("sg_all_gates");
+        try {
+            return raw ? JSON.parse(raw) : {};
+        } catch {
+            return {};
+        }
+    }
+
+    static getAllGates() {
+        return Object.keys(this.getAllGatesMap());
+    }
+
+    static async showSetupUI(match, player, signBlock) {
+        const form = new ModalFormData()
+            .title(`Setup ${match.gateDef.id} Stargate`)
+            .textField("Name", "Enter gate name (e.g. Base)")
+            .textField("Network", "Enter network name", "central");
+
+        const response = await form.show(player);
+        if (response.canceled) return;
+
+        const [name, network] = response.formValues;
+        if (!name) {
+            player.sendMessage("Gate name cannot be empty.");
+            return;
+        }
+
+        this.createGate(match, player, name, network, signBlock);
+    }
+
+    static createGate(match, player, name, network, signBlock) {
         const { gateDef, axis, anchor, anchorBlock } = match;
         const layout = gateDef.layout;
         const portalMat = gateDef.config['portal-open'];
-
-        player.dimension.runCommandAsync(`say Creating ${gateDef.id} Gate!`);
+        const portalBlocks = [];
 
         // Fill the '.' and '*' blocks with portal material
         for (let r = 0; r < layout.length; r++) {
@@ -197,15 +367,40 @@ export class GateManager {
 
                     const block = anchorBlock.dimension.getBlock({ x: targetX, y: targetY, z: targetZ });
 
-                    // Set to portal material
-                    // Note: 'minecraft:nether_portal' requires valid axis property or it vanishes?
-                    // 'minecraft:water', etc.
+                    // Handle nether_portal rotation
+                    if (portalMat === "minecraft:nether_portal") {
+                        const axisValue = axis === 'x' ? 'x' : 'z';
+                        block.setPermutation(BlockPermutation.resolve(portalMat, { "portal_axis": axisValue }));
+                    } else {
+                        block.setType(portalMat);
+                    }
 
-                    // Force set
-                    // We might need to handle block states for portal axis
-                    block.setType(portalMat);
+                    portalBlocks.push({ x: targetX, y: targetY, z: targetZ });
                 }
             }
         }
+
+        const key = this.getGateKey(anchorBlock);
+
+        // Sign location is passed in explicitly now
+        let signLocation = null;
+        if (signBlock) {
+            signLocation = { x: signBlock.x, y: signBlock.y, z: signBlock.z, dim: signBlock.dimension.id };
+        }
+
+        const gateData = {
+            id: gateDef.id,
+            name,
+            network,
+            axis,
+            location: { x: anchorBlock.x, y: anchorBlock.y, z: anchorBlock.z, dim: anchorBlock.dimension.id },
+            portalBlocks,
+            signLocation
+        };
+
+        this.saveGateData(key, gateData);
+        this.updateNetworkSigns(network);
+
+        player.sendMessage(`Stargate '${name}' created on network '${network}'!`);
     }
 }

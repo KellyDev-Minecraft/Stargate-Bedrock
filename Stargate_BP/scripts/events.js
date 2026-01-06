@@ -2,15 +2,25 @@ import { world, system, BlockPermutation } from "@minecraft/server";
 import { GateManager } from "./gate-manager.js";
 
 export function setupBlockInteractions() {
-    world.beforeEvents.playerInteractWithBlock.subscribe((event) => {
+    // 1. Creation: Listen for Sign Placement
+    world.afterEvents.playerPlaceBlock.subscribe((event) => {
         const { block, player } = event;
-
-        // Simple check: is it a button?
-        if (block.typeId.includes("button")) {
-            // We need to run the logic in the next tick or async to avoid blocking the event cancelling
+        if (block.typeId.includes("sign")) {
             system.run(() => {
-                GateManager.checkAndActivateGate(block, player);
+                GateManager.checkAndCreateGateFromSign(block, player);
             });
         }
     });
+
+    // 2. Interaction: Listen for Sign Interaction (Dialing)
+    world.beforeEvents.playerInteractWithBlock.subscribe((event) => {
+        const { block, player } = event;
+        if (block.typeId.includes("sign")) {
+            system.run(() => {
+                GateManager.handleSignInteraction(block, player);
+            });
+        }
+    });
+
+    console.warn("Sign Interactions Registered");
 }
