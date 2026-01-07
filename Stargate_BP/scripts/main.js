@@ -2,6 +2,7 @@ import { world, system } from "@minecraft/server";
 import { setupBlockInteractions } from "./events.js";
 import { UiManager } from "./ui-manager.js";
 import { GateManager } from "./gate-manager.js";
+import { GateDefinitions } from "./data/gate_definitions.js";
 
 console.warn("Stargate Script Loading...");
 
