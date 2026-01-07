@@ -1,0 +1,36 @@
+{
+    "format_version": "1.20.50",
+    "minecraft:recipe_shaped": {
+        "description": {
+            "identifier": "stargate:casting_guide_recipe"
+        },
+        "unlock": [
+            {
+                "item": "minecraft:book"
+            }
+        ],
+        "tags": [
+            "crafting_table"
+        ],
+        "pattern": [
+            "LRL",
+            "RBR",
+            "LRL"
+        ],
+        "key": {
+            "L": {
+                "item": "minecraft:lapis_lazuli"
+            },
+            "R": {
+                "item": "minecraft:redstone"
+            },
+            "B": {
+                "item": "minecraft:book"
+            }
+        },
+        "result": {
+            "item": "stargate:plan_book",
+            "count": 1
+        }
+    }
+}

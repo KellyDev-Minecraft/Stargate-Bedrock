@@ -10,10 +10,10 @@
         },
         "components": {
             "minecraft:display_name": {
-                "value": "Stargate Manual"
+                "value": "Stargate Casting Guide"
             },
             "minecraft:icon": {
-                "texture": "book_written"
+                "texture": "stargate_plan_book"
             },
             "minecraft:max_stack_size": 1,
             "minecraft:cooldown": {

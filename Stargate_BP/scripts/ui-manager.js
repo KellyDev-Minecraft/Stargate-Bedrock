@@ -3,20 +3,25 @@ import { GateDefinitions } from "./data/gate_definitions.js";
 
 export class UiManager {
     static async showGateSelection(player) {
+        console.warn(`UiManager.showGateSelection called for ${player.name}`);
         const form = new ActionFormData()
-            .title("Stargate Plans")
+            .title("Stargate Casting Guide")
             .body("Select a gate type to view its construction plan.");
 
+        console.warn(`Loading ${GateDefinitions.length} definitions...`);
         for (const gate of GateDefinitions) {
             form.button(gate.id);
         }
 
+        console.warn("Showing form...");
         const response = await form.show(player);
+        console.warn(`Form response: canceled=${response.canceled}, selection=${response.selection}`);
 
         if (response.canceled) return;
 
         const selectedGate = GateDefinitions[response.selection];
         if (selectedGate) {
+            console.warn(`Selected gate: ${selectedGate.id}`);
             this.showGateDetails(player, selectedGate);
         }
     }

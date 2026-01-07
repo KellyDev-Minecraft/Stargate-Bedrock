@@ -4,15 +4,27 @@
         "description": "Stargate Bedrock Behavior Pack",
         "name": "Stargate BP",
         "uuid": "43916969-950c-4573-b328-765089309601",
-        "version": [1, 0, 0],
-        "min_engine_version": [1, 21, 30]
+        "version": [
+            1,
+            0,
+            0
+        ],
+        "min_engine_version": [
+            1,
+            21,
+            131
+        ]
     },
     "modules": [
         {
             "description": "Script module for Stargate Logic",
             "type": "script",
             "uuid": "2059345c-204b-4654-b4a1-098867540232",
-            "version": [1, 0, 0],
+            "version": [
+                1,
+                0,
+                0
+            ],
             "entry": "scripts/main.js",
             "language": "javascript"
         }

@@ -3,7 +3,7 @@ export const GateDefinitions = [
         "id": "nethergate",
         "format_version": "1.0.0",
         "config": {
-            "portal-open": "minecraft:nether_portal",
+            "portal-open": "minecraft:portal",
             "portal-closed": "minecraft:air",
             "button": "minecraft:stone_button",
             "toowner": "minecraft:false"
@@ -66,7 +66,7 @@ export const GateDefinitions = [
         "id": "squarenetherglowstonegate",
         "format_version": "1.0.0",
         "config": {
-            "portal-open": "minecraft:nether_portal",
+            "portal-open": "minecraft:portal",
             "portal-closed": "minecraft:air",
             "button": "minecraft:oak_button",
             "toowner": "minecraft:false"

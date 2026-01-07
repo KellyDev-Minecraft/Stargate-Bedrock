@@ -7,7 +7,7 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 - **Classic Gate Building**: Build gates block-by-block using traditional layouts (e.g. Obsidian Nether Gate).
 - **Gate Detection**: The addon automatically detects valid gate frames when you push the button.
 - **Visuals**: Portals fill with blocks (Nether Portal, Water, etc.) upon activation.
-- **Gate Plans Book**: An in-game manual ("Stargate Manual") that shows you exactly how to build every available gate type.
+- **Gate Plans Book**: An in-game manual ("Stargate Casting Guide") that shows you exactly how to build every available gate type.
 - **Customizable**: Add your own gate designs via JSON configuration.
 
 ## Installation
@@ -18,7 +18,7 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 
 ## Usage
 
-1. **Get the Manual**: Give yourself the `stargate:plan_book` item or search for "Stargate Manual" in the Creative inventory.
+1. **Get the Casting Guide**: Give yourself the `stargate:plan_book` item or search for "Stargate Casting Guide" in the Creative inventory.
 2. **Choose a Design**: Use the book to select a gate type (e.g., "nethergate").
 3. **Build the Frame**: Follow the plan shown in the book.
     - `X`: Frame Material
