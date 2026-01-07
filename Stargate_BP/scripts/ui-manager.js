@@ -40,15 +40,22 @@ export class UiManager {
             layoutText += `  ${line}\n`; // Indent for readability
         }
 
-        const form = new ActionFormData() // Using ActionForm as a simple "Okay" dialog
+        const form = new ActionFormData()
             .title(`Plan: ${gateDef.id}`)
             .body(layoutText)
+            .button("§6Summon Gate§r\n(Costs XP + Blocks)")
             .button("Back")
             .button("Close");
 
         const response = await form.show(player);
+        if (response.canceled) return;
 
         if (response.selection === 0) {
+            // Initiate Summoning Mode
+            player.addTag("stargate_summon_mode");
+            player.addTag(`stargate_summon_type:${gateDef.id}`);
+            player.sendMessage(`§6Summon Mode Active!§r\nRight-click a block with the Casting Guide to summon the §e${gateDef.id}§r.`);
+        } else if (response.selection === 1) {
             this.showGateSelection(player);
         }
     }

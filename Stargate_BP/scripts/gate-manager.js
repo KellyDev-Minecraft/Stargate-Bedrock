@@ -32,18 +32,44 @@ export class GateManager {
     // --- SIGN BASED INTERACTION ---
     static handleSignInteraction(signBlock, player) {
         console.warn("handleSignInteraction called");
-        // Find which gate owns this sign
         const gate = this.findGateBySign(signBlock);
-        if (gate) {
-            console.warn(`Gate found: ${gate.name}, attempting to show Dial UI`);
-            try {
-                this.showDialUI(gate, player);
-            } catch (e) {
-                console.warn(`Error showing Dial UI: ${e}`);
-            }
-        } else {
+        if (!gate) {
             console.warn("handleSignInteraction: No gate found for this sign.");
+            return;
         }
+
+        // Find existing priming for this player and gate
+        let prime = this.primedGates.find(p => p.player.id === player.id && p.source.location.x === gate.location.x && p.source.location.y === gate.location.y && p.source.location.z === gate.location.z);
+
+        if (!prime) {
+            // First time tapping: Start Priming
+            console.warn(`Starting priming for ${gate.name}`);
+            const allGates = this.getAllGatesMap();
+            const targets = Object.values(allGates).filter(g => g.network === gate.network && g.name !== gate.name);
+
+            if (targets.length === 0) {
+                player.sendMessage(`No other gates found on network '${gate.network}'.`);
+                return;
+            }
+
+            prime = {
+                source: gate,
+                targets: targets,
+                selectedTargetIndex: 0,
+                player: player,
+                ticksLeft: 100 // 5 seconds
+            };
+            this.primedGates.push(prime);
+        } else {
+            // Subsequent tap: Cycle Target
+            prime.selectedTargetIndex = (prime.selectedTargetIndex + 1) % prime.targets.length;
+            prime.ticksLeft = 100; // Reset timer
+            console.warn(`Cycling target for ${gate.name} to index ${prime.selectedTargetIndex}`);
+        }
+
+        // Update sign text
+        const targetNames = prime.targets.map(t => t.name);
+        this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name, ...targetNames], prime.selectedTargetIndex);
     }
 
     static findGateBySign(signBlock) {
@@ -56,6 +82,32 @@ export class GateManager {
                 gate.signLocation.y === signBlock.y &&
                 gate.signLocation.z === signBlock.z) {
                 return gate;
+            }
+        }
+        return null;
+    }
+
+    static findGateByBlock(block) {
+        const allGates = this.getAllGatesMap();
+        for (const key in allGates) {
+            const gate = allGates[key];
+            const dimId = block.dimension.id;
+
+            // Check sign
+            if (gate.signLocation &&
+                gate.signLocation.x === block.x &&
+                gate.signLocation.y === block.y &&
+                gate.signLocation.z === block.z &&
+                gate.signLocation.dim === dimId) {
+                return { key, gate };
+            }
+
+            // Check frame
+            if (gate.frameBlocks) {
+                const isFrame = gate.frameBlocks.some(fb =>
+                    fb.x === block.x && fb.y === block.y && fb.z === block.z && gate.location.dim === dimId
+                );
+                if (isFrame) return { key, gate };
             }
         }
         return null;
@@ -279,33 +331,41 @@ export class GateManager {
         }
     }
 
-    static setSignText(loc, name, network, targets) {
+    static setSignText(loc, name, network, targets, selectedIndex = -1, isActive = false) {
         const dim = world.getDimension(loc.dim);
         if (!dim) return;
         const block = dim.getBlock(loc);
-        if (!block) {
-            console.warn(`setSignText: Block at ${loc.x},${loc.y},${loc.z} not loaded?`);
-            return;
-        }
-
-        // Ensure it's a sign
-        if (!block.typeId.includes("sign")) {
-            console.warn(`setSignText: Block at ${loc.x},${loc.y},${loc.z} is ${block.typeId}, replacing with wall_sign`);
-            try {
-                // 'minecraft:wall_sign' is the standard ID seen in logs
-                block.setType("minecraft:wall_sign");
-            } catch (e) {
-                console.warn(`setSignText Error replacing block: ${e}`);
-            }
-        }
+        if (!block) return;
 
         const sign = block.getComponent("minecraft:sign");
         if (sign) {
-            let text = `[${name}]\nNetwork: ${network}\n---\n`;
-            text += targets.filter(t => t !== name).slice(0, 2).join("\n");
+            let text = "";
+            const targetList = targets.filter(t => t !== name);
+
+            if (isActive) {
+                // Active Portal State
+                const dest = targets[0] || "Unknown";
+                text = `§1-${name}-\n§c>> ACTIVE <<\n§4${dest}`;
+            } else if (selectedIndex === -1) {
+                // Default State
+                text = `§1-${name}-\n§8------------\n§3${network}`;
+            } else {
+                // Primed/Selection State
+                text = `§1-${name}-\n`;
+                if (targetList.length > 0) {
+                    const idx = selectedIndex % targetList.length;
+                    const selectedName = targetList[idx];
+                    text += `§0<${selectedName}>\n`;
+
+                    if (targetList.length > 1) {
+                        const nextName = targetList[(idx + 1) % targetList.length];
+                        text += `§8${nextName}\n`;
+                    }
+                } else {
+                    text += "§4(No Targets)";
+                }
+            }
             sign.setText(text);
-        } else {
-            console.warn(`setSignText: Failed to get sign component on ${block.typeId}`);
         }
     }
 
@@ -351,21 +411,9 @@ export class GateManager {
         this.primeGate(activeGate, targetGate, player);
     }
 
-    static primedGates = []; // { source, target, player, ticksLeft }
+    static primedGates = []; // { source, targets, selectedTargetIndex, player, ticksLeft }
 
-    static primeGate(sourceGate, targetGate, player) {
-        // Remove existing priming for this player/source?
-        this.primedGates = this.primedGates.filter(p => p.player.id !== player.id || p.source.name !== sourceGate.name);
 
-        this.primedGates.push({
-            source: sourceGate,
-            target: targetGate,
-            player: player,
-            ticksLeft: 100 // 5 seconds (20 ticks per sec)
-        });
-
-        player.sendMessage(`§eGate primed for ${targetGate.name}. Press the button to activate!`);
-    }
 
     static handleButtonInteraction(buttonBlock, player) {
         console.warn(`handleButtonInteraction: Button pressed at ${buttonBlock.x}, ${buttonBlock.y}, ${buttonBlock.z} by ${player.name} at ${Math.floor(player.location.x)}, ${Math.floor(player.location.y)}, ${Math.floor(player.location.z)}`);
@@ -389,8 +437,9 @@ export class GateManager {
 
         if (primeIdx !== -1) {
             const prime = this.primedGates[primeIdx];
-            console.warn(`[SUCCESS] Matching prime found! Activating gate ${prime.source.name} -> ${prime.target.name}`);
-            this.activateGate(prime.source, prime.target, player);
+            const targetGate = prime.targets[prime.selectedTargetIndex];
+            console.warn(`[SUCCESS] Matching prime found! Activating gate ${prime.source.name} -> ${targetGate.name}`);
+            this.activateGate(prime.source, targetGate, player);
             this.primedGates.splice(primeIdx, 1);
         } else {
             console.warn("[FAILURE] No primed gate matches this button interaction.");
@@ -424,8 +473,13 @@ export class GateManager {
         this.activePortals.push({
             gate: sourceGate,
             target: targetGate,
-            ticksRemaining: 600 // 30 seconds
+            ticksRemaining: 100 // 5 seconds (as per user's 100 tick edit)
         });
+
+        // 2. Update Sign to show active destination
+        if (sourceGate.signLocation) {
+            this.setSignText(sourceGate.signLocation, sourceGate.name, sourceGate.network, [targetGate.name], 0, true);
+        }
 
         player.sendMessage(`§aGate Active! Destination: ${targetGate.name}`);
     }
@@ -462,22 +516,17 @@ export class GateManager {
             try {
                 const block = dim.getBlock(pb);
                 if (block) {
-                    if (isOpen) {
-                        console.warn(`  - Activating portal block at ${pb.x}, ${pb.y}, ${pb.z} to ${blockType}`);
-                        // Fix for portal axis
-                        if (blockType === "minecraft:portal") {
-                            const axis = gate.axis === 'x' ? 'x' : 'z';
-                            try {
-                                block.setPermutation(BlockPermutation.resolve(blockType, { "portal_axis": axis }));
-                            } catch (e) {
-                                console.warn(`  - Error setting permutation for ${pb.x},${pb.y},${pb.z}: ${e}`);
-                                block.setType(blockType);
-                            }
-                        } else {
-                            block.setType(blockType);
+                    const permutation = BlockPermutation.resolve(blockType);
+
+                    if (isOpen && blockType === "minecraft:portal") {
+                        const axis = gate.axis === 'x' ? 'x' : 'z';
+                        try {
+                            block.setPermutation(BlockPermutation.resolve(blockType, { "portal_axis": axis }));
+                        } catch (e) {
+                            block.setPermutation(permutation);
                         }
                     } else {
-                        block.setType(blockType);
+                        block.setPermutation(permutation);
                     }
                 }
             } catch (e) {
@@ -499,8 +548,14 @@ export class GateManager {
                 const p = this.primedGates[i];
                 p.ticksLeft--;
                 if (p.ticksLeft <= 0) {
-                    console.warn(`Priming for ${p.source.name} -> ${p.target.name} expired.`);
-                    p.player.sendMessage(`§cActivation window for ${p.target.name} expired.`);
+                    console.warn(`Priming for ${p.source.name} expired.`);
+
+                    // Revert sign text
+                    if (p.source.signLocation) {
+                        this.setSignText(p.source.signLocation, p.source.name, p.source.network, [p.source.name]);
+                    }
+
+                    p.player.sendMessage(`§cActivation window for ${p.source.name} expired.`);
                     this.primedGates.splice(i, 1);
                 }
             }
@@ -533,6 +588,12 @@ export class GateManager {
                 if (!frameIntact || ap.ticksRemaining <= 0) {
                     console.warn(`Closing portal ${ap.gate.name} (Intact: ${frameIntact}, Ticks: ${ap.ticksRemaining})`);
                     this.setPortalBlocks(ap.gate, false);
+
+                    // Revert sign to default
+                    if (ap.gate.signLocation) {
+                        this.setSignText(ap.gate.signLocation, ap.gate.name, ap.gate.network, []);
+                    }
+
                     this.activePortals.splice(i, 1);
                     continue;
                 }
@@ -746,13 +807,65 @@ export class GateManager {
                         const currentText = signComp.getText();
                         if (!currentText.includes(gate.name) || !currentText.includes(gate.network)) {
                             console.warn(`Sign text for ${gate.name} is wrong. Fixing.`);
-                            const names = Object.values(gates).filter(g => g.network === gate.network).map(g => g.name);
-                            this.setSignText(gate.signLocation, gate.name, gate.network, names);
+                            this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name]);
                         }
                     }
                 }
 
-                // 5. Button Healing & Placement Logic
+                // 5. Healing: Ensure portalCenter and frameBlocks exist
+                if (!gate.portalCenter || !gate.frameBlocks || gate.frameBlocks.length === 0) {
+                    console.warn(`Healing gate data (missing center or frame): ${gate.name}`);
+                    const gateDef = GateDefinitions.find(d => d.id === gate.id);
+                    if (gateDef) {
+                        const anchorBlock = dim.getBlock(gate.location);
+                        if (anchorBlock) {
+                            const match = this.matchGatePattern(gateDef, anchorBlock);
+                            if (match) {
+                                // Re-calculate portal and frame blocks
+                                const portalBlocks = [];
+                                const frameBlocks = [];
+                                const layout = gateDef.layout;
+                                const anchor = match.matchedAnchor;
+
+                                for (let r = 0; r < layout.length; r++) {
+                                    for (let c = 0; c < layout[r].length; c++) {
+                                        const char = layout[r][c];
+                                        const dy = anchor.r - r;
+                                        const dLat = c - anchor.c;
+
+                                        let tx = gate.location.x;
+                                        let ty = gate.location.y + dy;
+                                        let tz = gate.location.z;
+
+                                        if (gate.axis === 'x') tx += dLat;
+                                        else tz += dLat;
+
+                                        const bLoc = { x: tx, y: ty, z: tz };
+                                        if (char === '.' || char === '*') portalBlocks.push(bLoc);
+                                        else if (char === 'X') frameBlocks.push(bLoc);
+                                    }
+                                }
+
+                                gate.portalBlocks = portalBlocks;
+                                gate.frameBlocks = frameBlocks;
+
+                                // Recalculate Center
+                                let cx = 0, cy = 0, cz = 0;
+                                if (portalBlocks.length > 0) {
+                                    portalBlocks.forEach(pb => { cx += pb.x; cy += pb.y; cz += pb.z; });
+                                    gate.portalCenter = {
+                                        x: cx / portalBlocks.length,
+                                        y: cy / portalBlocks.length,
+                                        z: cz / portalBlocks.length
+                                    };
+                                }
+                                console.warn(`Healed center/frame for ${gate.name}. New center: ${JSON.stringify(gate.portalCenter)}`);
+                            }
+                        }
+                    }
+                }
+
+                // 6. Button Healing & Placement Logic
                 if (!gate.buttonLocation) {
                     console.warn(`Healing buttonLocation for legacy gate: ${gate.name}`);
                     // Use the same logic as createGate to find an anchor and place a button
@@ -1110,9 +1223,97 @@ export class GateManager {
         };
 
         this.saveGateData(key, gateData);
-        this.updateNetworkSigns(network);
+        this.setSignText(signLocCtx, name, network, [name]);
 
         console.warn(`Gate '${name}' created. Center: ${centerX},${centerY},${centerZ}. Exit: ${JSON.stringify(exitDirection)}`);
         player.sendMessage(`Stargate '${name}' created on network '${network}'!`);
+    }
+
+    static autoBuildGate(player, gateDef, startLoc, axis) {
+        const dim = world.getDimension(startLoc.dim || "overworld");
+        if (!dim) return;
+
+        console.warn(`autoBuildGate: ${gateDef.id} from bottom-left origin ${startLoc.x},${startLoc.y},${startLoc.z} axis ${axis}`);
+
+        const layout = gateDef.layout;
+        let totalXpCost = 0;
+
+        // Origin is bottom-left
+        // dy = (layout.length - 1) - r
+        // dLat = c
+        for (let r = 0; r < layout.length; r++) {
+            for (let c = 0; c < layout[r].length; c++) {
+                const char = layout[r][c];
+                if (char === ' ') continue;
+
+                const dy = (layout.length - 1) - r;
+                const dLat = c;
+
+                let tx = startLoc.x;
+                let ty = startLoc.y + dy;
+                let tz = startLoc.z;
+
+                if (axis === 'x') tx += dLat;
+                else tz += dLat;
+
+                const bLoc = { x: tx, y: ty, z: tz };
+                const block = dim.getBlock(bLoc);
+                if (!block) continue;
+
+                let mat = gateDef.materials[char];
+                if (char === '.' || char === '*') mat = gateDef.config['portal-closed'] || "minecraft:air";
+
+                if (block.typeId === mat) continue;
+
+                if (mat !== "minecraft:air") {
+                    if (this.consumeItem(player, mat)) totalXpCost += 1;
+                    else totalXpCost += 5;
+                }
+
+                try {
+                    block.setType(mat);
+                } catch (e) {
+                    console.warn(`Failed to place ${mat} at ${tx},${ty},${tz}: ${e}`);
+                }
+            }
+        }
+
+        // Deduct XP
+        // Max cost 30 as requested
+        const finalCost = Math.min(totalXpCost, 30);
+
+        // Bedrock API for XP: player.addExperience(-finalCost)
+        // However, addExperience takes points. 1 level != 1 point.
+        // The user said "XP cost", usually implies levels or points?
+        // "max cost should be 30" suggests levels (enchantment style) or just points?
+        // In Minecraft, 30 levels is a lot. 30 points is very little.
+        // Assuming points for now as it's safer, but I'll use a message to clarify.
+        try {
+            player.addExperience(-finalCost);
+        } catch (e) {
+            console.warn(`Failed to deduct XP: ${e}`);
+        }
+
+        player.sendMessage(`§6Stargate summoning complete!§r Cost: §e${finalCost} XP§r.`);
+        console.warn(`Auto-build complete. Cost: ${finalCost} XP.`);
+    }
+
+    static consumeItem(player, typeId) {
+        const inv = player.getComponent("minecraft:inventory").container;
+        if (!inv) return false;
+
+        for (let i = 0; i < inv.size; i++) {
+            const item = inv.getItem(i);
+            if (item && item.typeId === typeId) {
+                if (item.amount > 1) {
+                    item.amount--;
+                    inv.setItem(i, item);
+                } else {
+                    inv.setItem(i, undefined);
+                }
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -35,5 +35,17 @@ export function setupBlockInteractions() {
         }
     });
 
+    // Handle Gate Destruction
+    world.afterEvents.playerBreakBlock.subscribe((event) => {
+        const { block, player } = event;
+        const result = GateManager.findGateByBlock(block);
+        if (result) {
+            const { key, gate } = result;
+            console.warn(`Gate Destruction Detected: ${gate.name} at ${block.x},${block.y},${block.z}`);
+            GateManager.deleteGate(key);
+            player.sendMessage(`§cStargate '${gate.name}' destroyed.`);
+        }
+    });
+
     console.warn("Sign Interactions Registered");
 }
