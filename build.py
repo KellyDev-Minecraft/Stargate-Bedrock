@@ -3,8 +3,11 @@ import json
 import zipfile
 import os
 
-BP_MANIFEST = "Stargate_BP/manifest.json"
-RP_MANIFEST = "Stargate_RP/manifest.json"
+NAME="Stargate"
+BP_NAME=f"{NAME}_BP"
+RP_NAME=f"{NAME}_RP"
+BP_MANIFEST = f"{BP_NAME}/manifest.json"
+RP_MANIFEST = f"{RP_NAME}/manifest.json"
 
 def bump_version():
     """Increments the patch version in BP and syncs it to RP."""
@@ -84,12 +87,12 @@ def build():
     
     with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as addon:
         # Add BP
-        for root, dirs, files in os.walk("BP"):
+        for root, dirs, files in os.walk(BP_NAME):
             for file in files:
                 addon.write(os.path.join(root, file))
         
         # Add RP
-        for root, dirs, files in os.walk("RP"):
+        for root, dirs, files in os.walk(RP_NAME):
             for file in files:
                 addon.write(os.path.join(root, file))
     
