@@ -73,34 +73,14 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = script_dir # Now running from root
     
-    gate_defs_dir = os.path.join(root_dir, "gate_definitions")
     bp_dir = os.path.join(root_dir, "Stargate_BP")
     rp_dir = os.path.join(root_dir, "Stargate_RP")
-    
+
     # ensure scripts/data exists
     data_dir = os.path.join(bp_dir, "scripts", "data")
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-        
-    # 1. Merge Gate Definitions
-    gates = []
-    if os.path.exists(gate_defs_dir):
-        for f in os.listdir(gate_defs_dir):
-            if f.endswith(".json"):
-                with open(os.path.join(gate_defs_dir, f), 'r') as jf:
-                    try:
-                        gate_data = json.load(jf)
-                        gates.append(gate_data)
-                    except json.JSONDecodeError as e:
-                        print(f"Error parsing {f}: {e}")
-
-    # Write to JS file
-    js_content = f"export const GateDefinitions = {json.dumps(gates, indent=4)};"
-    with open(os.path.join(data_dir, "gate_definitions.js"), 'w') as f:
-        f.write(js_content)
     
-    print(f"Generated {len(gates)} gate definitions in scripts/data/gate_definitions.js")
-
     # 2. Determine Version
     commit_count, is_dirty = get_git_info()
     dev_inc = get_dev_increment(is_dirty)

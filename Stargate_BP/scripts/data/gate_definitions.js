@@ -3,7 +3,7 @@ export const GateDefinitions = [
         "id": "nethergate",
         "format_version": "1.0.0",
         "config": {
-            "portal-open": "minecraft:portal",
+            "portal-open": "minecraft:purple_stained_glass_pane",
             "portal-closed": "minecraft:air",
             "button": "minecraft:stone_button",
             "toowner": "minecraft:false"
@@ -66,7 +66,7 @@ export const GateDefinitions = [
         "id": "squarenetherglowstonegate",
         "format_version": "1.0.0",
         "config": {
-            "portal-open": "minecraft:portal",
+            "portal-open": "minecraft:purple_stained_glass_pane",
             "portal-closed": "minecraft:air",
             "button": "minecraft:oak_button",
             "toowner": "minecraft:false"
@@ -103,6 +103,68 @@ export const GateDefinitions = [
             "-..-",
             "X*.X",
             " XX"
+        ]
+    },
+    {
+        "id": "fireplace",
+        "format_version": "1.0.0",
+        "config": {
+            "portal-open": "minecraft:orange_stained_glass_pane",
+            "portal-closed": "minecraft:air",
+            "button": "minecraft:polished_blackstone_button",
+            "toowner": "minecraft:false"
+        },
+        "materials": {
+            "X": "minecraft:bricks",
+            "-": "minecraft:bricks",
+            "C": "minecraft:cobblestone"
+        },
+        "layout": [
+            " XXX ",
+            "X...X",
+            "-...-",
+            "X*..X",
+            " CCCCC"
+        ]
+    },
+    {
+        "id": "redstone",
+        "format_version": "1.0.0",
+        "config": {
+            "portal-open": "minecraft:red_stained_glass_pane",
+            "portal-closed": "minecraft:black_stained_glass_pane",
+            "button": "minecraft:stone_button",
+            "toowner": "minecraft:false"
+        },
+        "materials": {
+            "X": "minecraft:redstone_block",
+            "-": "minecraft:redstone_block"
+        },
+        "layout": [
+            "XXXX",
+            "X..X",
+            "-*.-",
+            "XXXX"
+        ]
+    },
+    {
+        "id": "lapis",
+        "format_version": "1.0.0",
+        "config": {
+            "portal-open": "minecraft:blue_stained_glass_pane",
+            "portal-closed": "minecraft:air",
+            "button": "minecraft:stone_button",
+            "toowner": "minecraft:false"
+        },
+        "materials": {
+            "X": "minecraft:lapis_block",
+            "-": "minecraft:lapis_block"
+        },
+        "layout": [
+            "XXXX",
+            "X..X",
+            "-*.-",
+            "XXXX"
         ]
     }
 ];
