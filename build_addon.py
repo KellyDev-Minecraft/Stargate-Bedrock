@@ -36,7 +36,7 @@ def get_dev_increment(is_dirty):
     return count
 
 def update_manifest_version(manifest_data, patch_version, dev_suffix=""):
-    full_version_str = f"v1.0.{patch_version}{dev_suffix}"
+    full_version_str = f"v1.1.{patch_version}{dev_suffix}"
     
     # Update header version and name
     if 'header' in manifest_data:
@@ -87,10 +87,10 @@ def main():
     patch_ver = commit_count + dev_inc
     dev_suffix = f"+dev{dev_inc-1}" if is_dirty else ""
     
-    print(f"Versioning: 1.0.{patch_ver} {dev_suffix}".strip())
+    print(f"Versioning: 1.1.{patch_ver} {dev_suffix}".strip())
 
     # 3. Create MCADDON
-    output_filename = f"Stargate_v1.0.{patch_ver}{dev_suffix}.mcaddon"
+    output_filename = f"Stargate_v1.1.{patch_ver}{dev_suffix}.mcaddon"
     output_path = os.path.join(root_dir, output_filename)
     
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:

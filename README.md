@@ -40,7 +40,7 @@ python3 build_addon.py
 This will:
 1. Merge all gate definitions from `gate_definitions/` into the Behavior Pack.
 2. Update the addon version based on the git commit count.
-3. Package everything into `Stargate_v1.0.X.mcaddon`.
+3. Package everything into `Stargate_v1.1.X.mcaddon`.
 
 ### Adding Custom Gates
 1. Create a new `.json` file in `gate_definitions/`.

@@ -1326,45 +1326,54 @@ export class GateManager {
         const dim = player.dimension;
 
         // Block IDs for placement (Bedrock specific)
-        const buttonType = gateDef.config['button'] || "minecraft:stone_button";
-        // Use 'standing_sign' as it is the base block ID for signs in many Bedrock versions
-        const signType = "minecraft:standing_sign";
+        // Use wall_sign to attach to the frame instead of replacing it
+        const signType = "minecraft:wall_sign";
 
-        console.warn(`Auto-placing controls: Sign=${signType}, Button=${buttonType} at ${controlLocs.length} locations`);
+        console.warn(`Auto-placing controls: Sign=${signType} at ${controlLocs.length} potential locations`);
 
-        // Rotation logic for facing (0-15 for standing signs)
+        // Determine orientation and offset based on player facing
         const rot = player.getRotation().y;
-        // Map 0-360 to 0-15 (22.5 degrees per step)
-        // 0 is South, 90 is West, 180 is North, 270 is East
-        // In script API, rotation is -180 to 180.
-        let normalizedRot = (rot + 180) % 360;
-        let groundSignRotation = Math.floor(normalizedRot / 22.5);
+        let facingDirection = 2; // North
+        let offset = { x: 0, y: 0, z: 0 };
 
-        // For wall-mounted components (like buttons), we use 2,3,4,5
-        let facingDirection = 3; // South
-        if (rot >= -45 && rot < 45) facingDirection = 3; // South
-        else if (rot >= 45 && rot < 135) facingDirection = 4; // West
-        else if (rot >= -135 && rot < -45) facingDirection = 5; // East
-        else facingDirection = 2; // North
+        // Bedrock Rotation (Script API): 0=South(+Z), 90=West(-X), 180/-180=North(-Z), -90=East(+X)
+        if (rot >= -45 && rot < 45) {
+            // Facing South (+Z), seeing North face (-Z)
+            facingDirection = 2; offset.z = -1;
+        } else if (rot >= 45 && rot < 135) {
+            // Facing West (-X), seeing East face (+X)
+            facingDirection = 5; offset.x = 1;
+        } else if (rot >= -135 && rot < -45) {
+            // Facing East (+X), seeing West face (-X)
+            facingDirection = 4; offset.x = -1;
+        } else {
+            // Facing North (-Z), seeing South face (+Z)
+            facingDirection = 3; offset.z = 1;
+        }
 
-        // Place Sign on the first location
+        // Place Sign on the first control location (which is a frame block) with offset
         if (controlLocs[0]) {
-            const loc = controlLocs[0];
-            const block = dim.getBlock(loc);
+            const frameLoc = controlLocs[0];
+            const signLoc = { x: frameLoc.x + offset.x, y: frameLoc.y + offset.y, z: frameLoc.z + offset.z };
+            const block = dim.getBlock(signLoc);
+
             try {
-                console.warn(`Placing sign at ${loc.x},${loc.y},${loc.z}`);
+                console.warn(`Placing wall sign at ${signLoc.x},${signLoc.y},${signLoc.z} attached to frame at ${frameLoc.x},${frameLoc.y},${frameLoc.z}`);
                 block.setType(signType);
-                const signPerm = BlockPermutation.resolve(signType, { "ground_sign_direction": groundSignRotation });
+                const signPerm = BlockPermutation.resolve(signType, { "facing_direction": facingDirection });
                 block.setPermutation(signPerm);
 
                 // Allow a tick for the block to initialize before setting text
                 system.run(() => {
-                    const signComp = dim.getBlock(loc).getComponent("minecraft:sign");
-                    if (signComp) {
-                        signComp.setText("§b[Stargate]§r\n§8(Right-click)§r");
-                        console.warn("Sign text set successfully.");
-                    } else {
-                        console.warn("Failed to find sign component on placed block.");
+                    const signBlock = dim.getBlock(signLoc);
+                    if (signBlock) {
+                        const signComp = signBlock.getComponent("minecraft:sign");
+                        if (signComp) {
+                            signComp.setText("§b[Stargate]§r\n§8(Right-click)§r");
+                            console.warn("Sign text set successfully.");
+                        } else {
+                            console.warn("Failed to find sign component on placed block.");
+                        }
                     }
                 });
             } catch (e) {
@@ -1372,21 +1381,8 @@ export class GateManager {
             }
         }
 
-        // Place Button on all other control locations
-        for (let i = 1; i < controlLocs.length; i++) {
-            const loc = controlLocs[i];
-            const block = dim.getBlock(loc);
-            try {
-                console.warn(`Placing button at ${loc.x},${loc.y},${loc.z}`);
-                block.setType(buttonType);
-                // Buttons are usually attached to the side of a block, but here they might be 'on' the block
-                // if it's a floor button. If it's a stone_button, it needs a face.
-                const btnPerm = BlockPermutation.resolve(buttonType, { "facing_direction": facingDirection });
-                block.setPermutation(btnPerm);
-            } catch (e) {
-                console.warn(`Button place error: ${e}`);
-            }
-        }
+        // Note: Button placement is skipped during summoning per user request.
+        // It will be generated during the gate registration/setup phase (in createGate).
     }
 
     static damageCastingGuide(player) {
