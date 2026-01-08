@@ -1,5 +1,5 @@
-import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { GateDefinitions } from "./data/gate_definitions.js";
+import { GateManager } from "./gate-manager.js";
 
 export class UiManager {
     static async showGateSelection(player) {
@@ -8,17 +8,24 @@ export class UiManager {
             .title("Stargate Casting Guide")
             .body("Select a gate type to view its construction plan.");
 
-        for (const gate of GateDefinitions) {
-            form.button(gate.id);
+        // Sort GateDefinitions: first by XP cost, then by ID
+        const sortedGates = [...GateDefinitions].sort((a, b) => {
+            const costA = GateManager.calculateGateXpCost(a, player);
+            const costB = GateManager.calculateGateXpCost(b, player);
+            if (costA !== costB) return costA - costB;
+            return a.id.localeCompare(b.id);
+        });
+
+        for (const gate of sortedGates) {
+            const cost = GateManager.calculateGateXpCost(gate, player);
+            form.button(`${gate.id}\n§8Cost: ${cost} XP`);
         }
 
         const response = await form.show(player);
-        if (!response) return;
-        console.warn(`Form response: canceled=${response.canceled}, selection=${response.selection}`);
+        if (!response || response.canceled) return;
+        console.warn(`Form response: selection=${response.selection}`);
 
-        if (response.canceled) return;
-
-        const selectedGate = GateDefinitions[response.selection];
+        const selectedGate = sortedGates[response.selection];
         if (selectedGate) {
             this.showGateDetails(player, selectedGate);
         }
@@ -38,17 +45,31 @@ export class UiManager {
             layoutText += `  ${line}\n`; // Indent for readability
         }
 
+        const xpCost = GateManager.calculateGateXpCost(gateDef, player);
+        const playerXp = player.xpQuantity;
+        const canAfford = playerXp >= xpCost;
+
         const form = new ActionFormData()
             .title(`Plan: ${gateDef.id}`)
-            .body(layoutText)
-            .button("§6Summon Gate§r\n(Costs Blocks + Max 30 XP)")
-            .button("Back")
+            .body(layoutText + `\n§6Required: ${xpCost} XP§r (You have: ${playerXp} XP)`);
+
+        if (canAfford) {
+            form.button(`§6Summon Gate§r\n(Costs Blocks + ${xpCost} XP)`);
+        } else {
+            form.button(`§8Summon Gate§r\n§c(Insufficient XP: ${xpCost} required)`);
+        }
+
+        form.button("Back")
             .button("Close");
 
         const response = await form.show(player);
         if (response.canceled) return;
 
         if (response.selection === 0) {
+            if (!canAfford) {
+                player.sendMessage(`§cYou need ${xpCost} XP to summon this gate. (Currently: ${playerXp})§r`);
+                return;
+            }
             // Fix tag accumulation: remove any existing summon type tags
             const existingTags = player.getTags();
             for (const tag of existingTags) {

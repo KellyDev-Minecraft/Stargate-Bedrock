@@ -1240,13 +1240,12 @@ export class GateManager {
             }
         }
 
-        let totalXpCost = 0;
         let index = 0;
 
         const placeNextBlock = () => {
             if (index >= blocksToPlace.length) {
                 // Summoning finished
-                const finalCost = Math.min(totalXpCost, 30);
+                const finalCost = GateManager.calculateGateXpCost(gateDef, player);
                 try {
                     player.addExperience(-finalCost);
                 } catch (e) {
@@ -1270,8 +1269,7 @@ export class GateManager {
 
             if (block && block.typeId !== mat) {
                 if (mat !== "minecraft:air") {
-                    if (this.consumeItem(player, mat)) totalXpCost += 1;
-                    else totalXpCost += 5;
+                    this.consumeItem(player, mat);
                 }
 
                 try {
@@ -1351,6 +1349,25 @@ export class GateManager {
         // It will be generated during the gate registration/setup phase (in createGate).
     }
 
+    static consumeItem(player, typeId) {
+        const inv = player.getComponent("minecraft:inventory").container;
+        if (!inv) return false;
+
+        for (let i = 0; i < inv.size; i++) {
+            const item = inv.getItem(i);
+            if (item && item.typeId === typeId) {
+                if (item.amount > 1) {
+                    item.amount--;
+                    inv.setItem(i, item);
+                } else {
+                    inv.setItem(i, undefined);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
     static damageCastingGuide(player) {
         const equippable = player.getComponent("minecraft:equippable");
         if (!equippable) return;
@@ -1371,22 +1388,37 @@ export class GateManager {
         }
     }
 
-    static consumeItem(player, typeId) {
-        const inv = player.getComponent("minecraft:inventory").container;
-        if (!inv) return false;
+    static calculateGateXpCost(gateDef, player) {
+        if (!gateDef || !gateDef.layout || !player) return 0;
 
-        for (let i = 0; i < inv.size; i++) {
-            const item = inv.getItem(i);
-            if (item && item.typeId === typeId) {
-                if (item.amount > 1) {
-                    item.amount--;
-                    inv.setItem(i, item);
-                } else {
-                    inv.setItem(i, undefined);
+        const inv = player.getComponent("minecraft:inventory")?.container;
+        const available = {};
+        if (inv) {
+            for (let i = 0; i < inv.size; i++) {
+                const item = inv.getItem(i);
+                if (item) {
+                    available[item.typeId] = (available[item.typeId] || 0) + item.amount;
                 }
-                return true;
             }
         }
-        return false;
+
+        let totalCost = 0;
+        for (const row of gateDef.layout) {
+            for (const char of row) {
+                if (char === ' ') continue;
+                let mat = gateDef.materials[char];
+                if (char === '.') mat = gateDef.config['portal-closed'];
+
+                if (mat && mat !== "minecraft:air") {
+                    if (available[mat] && available[mat] > 0) {
+                        totalCost += 1;
+                        available[mat]--;
+                    } else {
+                        totalCost += 5;
+                    }
+                }
+            }
+        }
+        return Math.min(totalCost, 30);
     }
 }
