@@ -34,48 +34,22 @@ system.run(() => {
 
 function setupItemInteractions() {
     console.warn("Registering itemUse listener...");
-    world.beforeEvents.itemUse.subscribe((event) => {
-        if (event.itemStack.typeId === "stargate:plan_book") {
-            // If in summon mode, don't open UI, just let itemUseOn handle it
-            if (event.source.hasTag("stargate_summon_mode")) return;
+    world.afterEvents.itemUse.subscribe((event) => {
+        const item = event.itemStack;
+        const player = event.source;
 
-            console.warn("Plan book detected, triggering UI...");
+        if (item?.typeId === "stargate:plan_book") {
+            // If in summon mode or actively building, only open UI if sneaking
+            if ((player.hasTag("stargate_summon_mode") || player.hasTag("stargate_summoning")) && !player.isSneaking) {
+                player.sendMessage("§eSneak + Right-click air to open selection menu; or Right-click a block to summon.§r");
+                return;
+            }
+
             system.run(() => {
                 try {
-                    UiManager.showGateSelection(event.source);
+                    UiManager.showGateSelection(player);
                 } catch (e) {
                     console.warn(`UI Error: ${e}`);
-                }
-            });
-        }
-    });
-
-    world.afterEvents.itemUseOn.subscribe((ev) => {
-        const { source: player, itemStack, block } = ev;
-        if (itemStack?.typeId === "stargate:plan_book" && player.hasTag("stargate_summon_mode")) {
-            const tags = player.getTags();
-            const typeTag = tags.find(t => t.startsWith("stargate_summon_type:"));
-            if (!typeTag) return;
-
-            const gateId = typeTag.split(":")[1];
-            const gateDef = GateDefinitions.find(d => d.id === gateId);
-            if (!gateDef) return;
-
-            // Determine Axis based on player facing
-            // 0=South, 90=West, 180=North, 270=East
-            const rot = player.getRotation().y;
-            const axis = (Math.abs(rot) < 45 || Math.abs(rot) > 135) ? 'x' : 'z';
-
-            const startLoc = { x: block.x, y: block.y + 1, z: block.z, dim: player.dimension.id };
-
-            player.removeTag("stargate_summon_mode");
-            player.removeTag(typeTag);
-
-            system.run(() => {
-                try {
-                    GateManager.autoBuildGate(player, gateDef, startLoc, axis);
-                } catch (e) {
-                    console.warn(`Summon Error: ${e}`);
                 }
             });
         }

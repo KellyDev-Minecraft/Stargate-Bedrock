@@ -1,5 +1,6 @@
 import { world, system, BlockPermutation } from "@minecraft/server";
 import { GateManager } from "./gate-manager.js";
+import { GateDefinitions } from "./data/gate_definitions.js";
 
 export function setupBlockInteractions() {
     // Unified Interaction Listener
@@ -31,6 +32,38 @@ export function setupBlockInteractions() {
         if (block.typeId.includes("button")) {
             system.run(() => {
                 GateManager.handleButtonInteraction(block, player);
+            });
+        }
+
+        // Check for Casting Guide Summoning
+        const item = player.getComponent("minecraft:inventory")?.container?.getItem(player.selectedSlotIndex);
+        if (item?.typeId === "stargate:plan_book" && player.hasTag("stargate_summon_mode")) {
+            console.warn(`Summoning triggered at ${block.x},${block.y},${block.z} by ${player.name}`);
+
+            // Cancel the event to prevent placing the book (if it were placeable) or block interaction
+            event.cancel = true;
+
+            const tags = player.getTags();
+            const typeTag = tags.find(t => t.startsWith("stargate_summon_type:"));
+            if (!typeTag) return;
+
+            const gateId = typeTag.split(":")[1];
+            const gateDef = GateDefinitions.find(d => d.id === gateId);
+            if (!gateDef) return;
+
+            // Determine Axis based on player facing
+            const rot = player.getRotation().y;
+            const axis = (Math.abs(rot) < 45 || Math.abs(rot) > 135) ? 'x' : 'z';
+            const startLoc = { x: block.x, y: block.y + 1, z: block.z, dim: player.dimension.id };
+
+            system.run(() => {
+                try {
+                    player.removeTag("stargate_summon_mode");
+                    player.removeTag(typeTag);
+                    GateManager.autoBuildGate(player, gateDef, startLoc, axis);
+                } catch (e) {
+                    console.warn(`Summon Error: ${e}`);
+                }
             });
         }
     });

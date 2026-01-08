@@ -42,6 +42,13 @@
             "minecraft:cooldown": {
                 "category": "stargate_book",
                 "duration": 1.0
+            },
+            "minecraft:durability": {
+                "max_durability": 5,
+                "damage_chance": {
+                    "min": 100,
+                    "max": 100
+                }
             }
         }
     }

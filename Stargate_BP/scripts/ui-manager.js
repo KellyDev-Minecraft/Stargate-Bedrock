@@ -8,20 +8,18 @@ export class UiManager {
             .title("Stargate Casting Guide")
             .body("Select a gate type to view its construction plan.");
 
-        console.warn(`Loading ${GateDefinitions.length} definitions...`);
         for (const gate of GateDefinitions) {
             form.button(gate.id);
         }
 
-        console.warn("Showing form...");
         const response = await form.show(player);
+        if (!response) return;
         console.warn(`Form response: canceled=${response.canceled}, selection=${response.selection}`);
 
         if (response.canceled) return;
 
         const selectedGate = GateDefinitions[response.selection];
         if (selectedGate) {
-            console.warn(`Selected gate: ${selectedGate.id}`);
             this.showGateDetails(player, selectedGate);
         }
     }
@@ -43,7 +41,7 @@ export class UiManager {
         const form = new ActionFormData()
             .title(`Plan: ${gateDef.id}`)
             .body(layoutText)
-            .button("§6Summon Gate§r\n(Costs XP + Blocks)")
+            .button("§6Summon Gate§r\n(Costs Blocks + Max 30 XP)")
             .button("Back")
             .button("Close");
 
@@ -51,10 +49,18 @@ export class UiManager {
         if (response.canceled) return;
 
         if (response.selection === 0) {
+            // Fix tag accumulation: remove any existing summon type tags
+            const existingTags = player.getTags();
+            for (const tag of existingTags) {
+                if (tag.startsWith("stargate_summon_type:")) {
+                    player.removeTag(tag);
+                }
+            }
+
             // Initiate Summoning Mode
             player.addTag("stargate_summon_mode");
             player.addTag(`stargate_summon_type:${gateDef.id}`);
-            player.sendMessage(`§6Summon Mode Active!§r\nRight-click a block with the Casting Guide to summon the §e${gateDef.id}§r.`);
+            player.sendMessage(`§6Summon Mode Active!§r\nRight-click a block with the Casting Guide to summon the §e${gateDef.id}§r.\n§7(Sneak + Use to change selection)§r`);
         } else if (response.selection === 1) {
             this.showGateSelection(player);
         }
