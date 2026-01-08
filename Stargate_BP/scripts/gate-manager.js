@@ -3,30 +3,28 @@ import { GateDefinitions } from "./data/gate_definitions.js";
 import { ModalFormData, ActionFormData } from "@minecraft/server-ui";
 
 export class GateManager {
-    // --- SIGN BASED CREATION ---
-    static checkAndCreateGateFromSign(signBlock, player) {
-        console.warn("GateManager.checkAndCreateGateFromSign called");
-        // The sign is placed on the frame (usually). 
-        // We need to check the block BEHIND the sign (attached block).
+    static getPotentialGateMatch(signBlock) {
         const attachedBlock = this.getAttachedBlock(signBlock);
-        if (!attachedBlock) {
-            console.warn("Could not find attached block");
-            return;
-        }
-
-        console.warn(`Checking gate pattern on ${attachedBlock.typeId} attached to sign at ${signBlock.location.x}`);
+        if (!attachedBlock) return null;
 
         for (const gateDef of GateDefinitions) {
             const match = this.matchGatePattern(gateDef, attachedBlock);
-            if (match) {
-                // Show Setup UI
-                this.showSetupUI(match, player, signBlock);
-                return;
-            }
+            if (match) return match;
         }
+        return null;
+    }
 
-        // No match found
-        player.sendMessage("No valid gate pattern found.");
+    // --- SIGN BASED CREATION ---
+    static checkAndCreateGateFromSign(signBlock, player) {
+        console.warn("GateManager.checkAndCreateGateFromSign called");
+        const match = this.getPotentialGateMatch(signBlock);
+
+        if (match) {
+            this.showSetupUI(match, player, signBlock);
+        } else {
+            // No match found
+            player.sendMessage("No valid gate pattern found.");
+        }
     }
 
     // --- SIGN BASED INTERACTION ---
@@ -260,34 +258,22 @@ export class GateManager {
     }
 
     static matchesMaterial(char, block, gateDef) {
-        // 1. Check if char maps to a material in gateDef
-        let expectedMat = gateDef.materials[char];
-
-        // Special chars
-        if (char === '-') expectedMat = gateDef.materials['-'];
-
-        if (char === '.') {
-            // Portal material (open or closed)
-            expectedMat = gateDef.config['portal-closed'];
-        }
-
-        if (!expectedMat) {
-            return false;
-        }
-
         const blockId = block.typeId;
-        const expectedId = expectedMat.replace('minecraft:', '');
 
-        if (blockId.includes(expectedId)) return true;
-
-        // Special case: if it's the '.' (portal), allow portal-open material too
-        if (char === '.') {
-            const openMat = gateDef.config['portal-open'];
-            if (blockId === openMat || blockId.includes(openMat.replace('minecraft:', ''))) return true;
+        if (char === '-') {
+            // Control points (signs/buttons) - usually on frame blocks
+            // Must match one of the defined materials
+            const materials = Object.values(gateDef.materials);
+            return materials.some(mat => blockId === mat || blockId.includes(mat.replace('minecraft:', '')));
+        } else if (char === '.') {
+            // Portal material - ALWAY MATCHES during validation (ignore portal blocks)
+            return true;
+        } else if (gateDef.materials[char]) {
+            const expectedMat = gateDef.materials[char];
+            // Allow AIR match if we expect AIR
+            if (expectedMat === 'minecraft:air' && block.isAir) return true;
+            return blockId === expectedMat || blockId.includes(expectedMat.replace('minecraft:', ''));
         }
-
-        // Allow AIR match if we expect AIR
-        if (expectedMat === 'minecraft:air' && block.isAir) return true;
 
         return false;
     }
@@ -1246,12 +1232,16 @@ export class GateManager {
             if (index >= blocksToPlace.length) {
                 // Summoning finished
                 const finalCost = GateManager.calculateGateXpCost(gateDef, player);
-                try {
-                    player.addExperience(-finalCost);
-                } catch (e) {
-                    console.warn(`Failed to deduct XP: ${e}`);
+                if (player.getGameMode() !== "creative") {
+                    try {
+                        player.addLevels(-finalCost);
+                    } catch (e) {
+                        console.warn(`Failed to deduct Levels: ${e}`);
+                    }
+                    player.sendMessage(`§6Stargate summoning complete!§r Cost: §e${finalCost} Levels§r.`);
+                } else {
+                    player.sendMessage(`§6Stargate summoning complete!§r (Creative Mode: Free)`);
                 }
-                player.sendMessage(`§6Stargate summoning complete!§r Cost: §e${finalCost} XP§r.`);
 
                 // Auto-place sign and button
                 if (controlLocations.length > 0) {
@@ -1350,6 +1340,7 @@ export class GateManager {
     }
 
     static consumeItem(player, typeId) {
+        if (player.getGameMode() === "creative") return true;
         const inv = player.getComponent("minecraft:inventory").container;
         if (!inv) return false;
 
@@ -1369,6 +1360,7 @@ export class GateManager {
     }
 
     static damageCastingGuide(player) {
+        if (player.getGameMode() === "creative") return;
         const equippable = player.getComponent("minecraft:equippable");
         if (!equippable) return;
 
@@ -1388,8 +1380,13 @@ export class GateManager {
         }
     }
 
+    /**
+     * Calculates the Level cost for summoning a gate.
+     * @returns {number} Level cost (0-30)
+     */
     static calculateGateXpCost(gateDef, player) {
         if (!gateDef || !gateDef.layout || !player) return 0;
+        if (player.getGameMode() === "creative") return 0;
 
         const inv = player.getComponent("minecraft:inventory")?.container;
         const available = {};
@@ -1419,6 +1416,7 @@ export class GateManager {
                 }
             }
         }
-        return Math.min(totalCost, 30);
+        // Normalize to Levels (capped at 30, roughly matches enchantment logic)
+        return Math.min(Math.ceil(totalCost / 5), 30);
     }
 }

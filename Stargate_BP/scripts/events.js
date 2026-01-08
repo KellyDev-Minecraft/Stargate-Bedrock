@@ -12,20 +12,30 @@ export function setupBlockInteractions() {
         if (block.typeId.includes("sign")) {
             console.warn("Sign interaction matched!");
 
-            // Critical: Cancel the vanilla event to prevent "Edit Sign" UI from blocking ours
-            event.cancel = true;
-
-            // Use runTimeout to give a small buffer after the event tick
-            system.runTimeout(() => {
-                // First, check if it's already a registered gate
-                const isGate = GateManager.findGateBySign(block);
-                if (isGate) {
+            // 1. Check if it's already a registered gate
+            const isGate = GateManager.findGateBySign(block);
+            if (isGate) {
+                // Cancel vanilla event and handle interaction
+                event.cancel = true;
+                system.run(() => {
                     GateManager.handleSignInteraction(block, player);
-                } else {
-                    // If not a gate, try to create one
-                    GateManager.checkAndCreateGateFromSign(block, player);
-                }
-            }, 2); // 2 tick delay
+                });
+                return;
+            }
+
+            // 2. Not a gate? Check if it MATHER a pattern
+            const match = GateManager.getPotentialGateMatch(block);
+            if (match) {
+                // Cancel vanilla event and show setup UI
+                event.cancel = true;
+                system.run(() => {
+                    GateManager.showSetupUI(match, player, block);
+                });
+                return;
+            }
+
+            // If neither, DO NOT cancel event (allows vanilla sign editing)
+            console.warn("No gate match found, allowing vanilla sign editing.");
         }
 
         // Check for Button interaction

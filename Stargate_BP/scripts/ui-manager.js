@@ -1,3 +1,4 @@
+import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { GateDefinitions } from "./data/gate_definitions.js";
 import { GateManager } from "./gate-manager.js";
 
@@ -18,7 +19,7 @@ export class UiManager {
         });
 
         for (const item of sortedGatesList) {
-            form.button(`${item.gate.id}\n§8Cost: ${item.cost} XP`);
+            form.button(`${item.gate.id}`);
         }
 
         const response = await form.show(player);
@@ -38,7 +39,7 @@ export class UiManager {
             layoutText += ` ${char} = ${mat.replace('minecraft:', '')}\n`;
         }
         layoutText += ` - = Controls (Button/Sign)\n`;
-        layoutText += ` . = Portal (Open)\n\n`;
+        layoutText += ` . = Portal (Open/Close)\n\n`;
         layoutText += "Layout:\n";
 
         for (const line of gateDef.layout) {
@@ -46,17 +47,18 @@ export class UiManager {
         }
 
         const xpCost = GateManager.calculateGateXpCost(gateDef, player);
-        const playerXp = player.xpQuantity;
-        const canAfford = playerXp >= xpCost;
+        const isCreative = player.getGameMode() === "creative";
+        const playerLevels = isCreative ? "Infinite" : player.level;
+        const canAfford = isCreative || player.level >= xpCost;
 
         const form = new ActionFormData()
             .title(`Plan: ${gateDef.id}`)
-            .body(layoutText + `\n§6Required: ${xpCost} XP§r (You have: ${playerXp} XP)`);
+            .body(layoutText + `\n§6Required: ${xpCost} Levels§r (You have: ${playerLevels} Levels)`);
 
         if (canAfford) {
-            form.button(`§6Summon Gate§r\n(Costs Blocks + ${xpCost} XP)`);
+            form.button(`§6Summon Gate§r\n(Costs Blocks + ${xpCost} xp)`);
         } else {
-            form.button(`§8Summon Gate§r\n§c(Insufficient XP: ${xpCost} required)`);
+            form.button(`§8Summon Gate§r\n§c(Insufficient xp: ${xpCost} required)`);
         }
 
         form.button("Back")
@@ -67,7 +69,7 @@ export class UiManager {
 
         if (response.selection === 0) {
             if (!canAfford) {
-                player.sendMessage(`§cYou need ${xpCost} XP to summon this gate. (Currently: ${playerXp})§r`);
+                player.sendMessage(`§cYou need ${xpCost} xp to summon this gate. (Currently: ${playerLevels})§r`);
                 return;
             }
             // Fix tag accumulation: remove any existing summon type tags
