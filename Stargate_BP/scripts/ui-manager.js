@@ -9,23 +9,23 @@ export class UiManager {
             .body("Select a gate type to view its construction plan.");
 
         // Sort GateDefinitions: first by XP cost, then by ID
-        const sortedGates = [...GateDefinitions].sort((a, b) => {
-            const costA = GateManager.calculateGateXpCost(a, player);
-            const costB = GateManager.calculateGateXpCost(b, player);
-            if (costA !== costB) return costA - costB;
-            return a.id.localeCompare(b.id);
+        const sortedGatesList = GateDefinitions.map(gate => ({
+            gate,
+            cost: GateManager.calculateGateXpCost(gate, player)
+        })).sort((a, b) => {
+            if (a.cost !== b.cost) return a.cost - b.cost;
+            return a.gate.id.localeCompare(b.gate.id);
         });
 
-        for (const gate of sortedGates) {
-            const cost = GateManager.calculateGateXpCost(gate, player);
-            form.button(`${gate.id}\n§8Cost: ${cost} XP`);
+        for (const item of sortedGatesList) {
+            form.button(`${item.gate.id}\n§8Cost: ${item.cost} XP`);
         }
 
         const response = await form.show(player);
         if (!response || response.canceled) return;
         console.warn(`Form response: selection=${response.selection}`);
 
-        const selectedGate = sortedGates[response.selection];
+        const selectedGate = sortedGatesList[response.selection].gate;
         if (selectedGate) {
             this.showGateDetails(player, selectedGate);
         }
