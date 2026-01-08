@@ -1,130 +1,99 @@
 #!/usr/bin/env python3
-import os
 import json
 import zipfile
-import subprocess
-import shutil
+import os
 
-def get_git_info():
+BP_MANIFEST = "Stargate_BP/manifest.json"
+RP_MANIFEST = "Stargate_RP/manifest.json"
+
+def bump_version():
+    """Increments the patch version in BP and syncs it to RP."""
+    if not os.path.exists(BP_MANIFEST):
+        print(f"Error: {BP_MANIFEST} not found.")
+        return None
+
+    with open(BP_MANIFEST, "r") as f:
+        bp_data = json.load(f)
+
+    # 1. Bump BP Version
+    v = bp_data["header"]["version"]
+    v[2] += 1
+    new_version_str = f"{v[0]}.{v[1]}.{v[2]}"
+    
+    # Sync modules in BP
+    for module in bp_data.get("modules", []):
+        module["version"] = v
+
+    # Update header name to include version (strip any existing trailing version)
     try:
-        # Get total commit count
-        count = int(subprocess.check_output(['git', 'rev-list', '--count', 'HEAD']).decode().strip())
-        # Check if dirty
-        dirty = subprocess.check_output(['git', 'status', '--porcelain']).decode().strip() != ""
-        return count, dirty
-    except:
-        print("Warning: Could not get git version, defaulting to 0")
-        return 0, False
+        import re
+        base_name = bp_data["header"].get("name", "").strip()
+        # remove trailing " (x.y.z)" if present
+        base_name = re.sub(r"\s*\(\d+\.\d+\.\d+\)$", "", base_name)
+        bp_data["header"]["name"] = f"{base_name} ({new_version_str})"
+    except Exception:
+        pass
 
-def get_dev_increment(is_dirty):
-    if not is_dirty:
-        return 0
+    with open(BP_MANIFEST, "w") as f:
+        json.dump(bp_data, f, indent=2)
     
-    counter_file = ".dev_build_count"
-    count = 0
-    if os.path.exists(counter_file):
-        with open(counter_file, 'r') as f:
+    print(f"Bumping version to {new_version_str}...")
+
+    # 2. Sync to RP Version
+    if os.path.exists(RP_MANIFEST):
+        with open(RP_MANIFEST, "r") as f:
+            rp_data = json.load(f)
+        
+        # Update header version
+        rp_data["header"]["version"] = v
+        
+        # Update modules version
+        for module in rp_data.get("modules", []):
+            module["version"] = v
+            
+        # Update dependencies version (specifically the one pointing to BP)
+        bp_uuid = bp_data["header"]["uuid"]
+        for dep in rp_data.get("dependencies", []):
+            if dep.get("uuid") == bp_uuid:
+                dep["version"] = v
+            elif "module_name" not in dep: # If it's a UUID dependency but not BP, maybe sync too? 
+                                          # Usually RP-BP dependency is the main one.
+                dep["version"] = v
+
+        with open(RP_MANIFEST, "w") as f:
+            # Also update RP header name to include version
             try:
-                count = int(f.read().strip()) + 1
-            except:
-                count = 1
-    else:
-        count = 1
+                import re
+                rbase = rp_data["header"].get("name", "").strip()
+                rbase = re.sub(r"\s*\(\d+\.\d+\.\d+\)$", "", rbase)
+                rp_data["header"]["name"] = f"{rbase} ({new_version_str})"
+            except Exception:
+                pass
+            json.dump(rp_data, f, indent=4)
+            
+    return new_version_str
+
+def build():
+    version = bump_version()
+    if not version:
+        return
+
+    filename = f"Stargate_Bedrock({version}).mcaddon"
+    
+    print(f"Building {filename}...")
+    
+    with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as addon:
+        # Add BP
+        for root, dirs, files in os.walk("BP"):
+            for file in files:
+                addon.write(os.path.join(root, file))
         
-    with open(counter_file, 'w') as f:
-        f.write(str(count))
-    return count
-
-def update_manifest_version(manifest_data, patch_version, dev_suffix=""):
-    full_version_str = f"v1.1.{patch_version}{dev_suffix}"
+        # Add RP
+        for root, dirs, files in os.walk("RP"):
+            for file in files:
+                addon.write(os.path.join(root, file))
     
-    # Update header version and name
-    if 'header' in manifest_data:
-        if 'version' in manifest_data['header']:
-            current = manifest_data['header']['version']
-            manifest_data['header']['version'] = [current[0], current[1], patch_version]
-        
-        if 'name' in manifest_data['header']:
-            base_name = manifest_data['header']['name']
-            # Clean old version strings if any
-            import re
-            base_name = re.sub(r' v\d+\.\d+\.\d+(\+dev\d+)?', '', base_name)
-            manifest_data['header']['name'] = f"{base_name} {full_version_str}"
-    
-    # Update modules version
-    if 'modules' in manifest_data:
-        for module in manifest_data['modules']:
-            if 'version' in module:
-                current = module['version']
-                module['version'] = [current[0], current[1], patch_version]
-    
-    # Update internal dependencies
-    internal_uuids = ["43916969-950c-4573-b328-765089309601", "685c4909-66c3-4d45-930c-720498309602"]
-    if 'dependencies' in manifest_data:
-        for dep in manifest_data['dependencies']:
-            if 'uuid' in dep and dep['uuid'] in internal_uuids:
-                if 'version' in dep:
-                    current = dep['version']
-                    dep['version'] = [current[0], current[1], patch_version]
-    
-    return manifest_data
-
-def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = script_dir # Now running from root
-    
-    bp_dir = os.path.join(root_dir, "Stargate_BP")
-    rp_dir = os.path.join(root_dir, "Stargate_RP")
-
-    # ensure scripts/data exists
-    data_dir = os.path.join(bp_dir, "scripts", "data")
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    
-    # 2. Determine Version
-    commit_count, is_dirty = get_git_info()
-    dev_inc = get_dev_increment(is_dirty)
-    patch_ver = commit_count + dev_inc
-    dev_suffix = f"+dev{dev_inc-1}" if is_dirty else ""
-    
-    print(f"Versioning: 1.1.{patch_ver} {dev_suffix}".strip())
-
-    # 3. Create MCADDON
-    output_filename = f"Stargate_v1.1.{patch_ver}{dev_suffix}.mcaddon"
-    output_path = os.path.join(root_dir, output_filename)
-    
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        # Helper to add directory with manifest patching
-        def add_pack_dir(pack_dir, archive_root):
-            for root, dirs, files in os.walk(pack_dir):
-                for file in files:
-                    abs_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(abs_path, root_dir) # e.g. Stargate_BP/manifest.json
-                    
-                    # If manifest, enable patching
-                    if file == "manifest.json":
-                        with open(abs_path, 'r') as mf:
-                            try:
-                                data = json.load(mf)
-                                data = update_manifest_version(data, patch_ver, dev_suffix)
-                                # Write modified content to zip
-                                zipf.writestr(rel_path, json.dumps(data, indent=4))
-                                continue
-                            except Exception as e:
-                                print(f"Error patching manifest {abs_path}: {e}")
-                                # Fallback to normal write
-                    
-                    zipf.write(abs_path, rel_path)
-
-        add_pack_dir(bp_dir, "Stargate_BP")
-        add_pack_dir(rp_dir, "Stargate_RP")
-                
-    print(f"Created {output_filename}")
-    
-    # Make a generic 'latest' copy too
-    latest_path = os.path.join(root_dir, "Stargate_latest.mcaddon")
-    shutil.copyfile(output_path, latest_path)
-    print(f"Updated {latest_path}")
+    print(f"Successfully created {filename}")
 
 if __name__ == "__main__":
-    main()
+    build()

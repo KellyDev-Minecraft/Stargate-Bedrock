@@ -265,39 +265,23 @@ export class GateManager {
 
         // Special chars
         if (char === '-') expectedMat = gateDef.materials['-'];
-        // In the format, '-' is also defined in materials map as the frame material.
 
         if (char === '.') {
             // Portal material (open or closed)
-            // When building, it should be portal-closed (AIR usually) or existing portal?
-            // Usually we build the frame with AIR inside.
-            expectedMat = gateDef.config['portal-closed'];
-        }
-
-        if (char === '*') {
-            // Exit point - usually matches portal-closed (AIR)
             expectedMat = gateDef.config['portal-closed'];
         }
 
         if (!expectedMat) {
-            // Maybe it is a literal material? (Not in this format)
             return false;
         }
 
-        // expectedMat is "minecraft:obsidian" string
-        // block.typeId is "minecraft:obsidian"
-
-        // Handle tags (not supported yet locally, but we cleaned them in python)
-        // Handle comma lists?
-
-        // Fuzzy match for colored blocks (wool, concrete, etc.)
         const blockId = block.typeId;
         const expectedId = expectedMat.replace('minecraft:', '');
 
         if (blockId.includes(expectedId)) return true;
 
         // Special case: if it's the '.' (portal), allow portal-open material too
-        if (char === '.' || char === '*') {
+        if (char === '.') {
             const openMat = gateDef.config['portal-open'];
             if (blockId === openMat || blockId.includes(openMat.replace('minecraft:', ''))) return true;
         }
@@ -308,28 +292,6 @@ export class GateManager {
         return false;
     }
 
-    static handleGateInteraction(match, player) {
-        const gateKey = this.getGateKey(match.anchorBlock);
-        const existingGate = this.getGateData(gateKey);
-
-        if (existingGate) {
-            this.showDialUI(existingGate, player);
-        } else {
-            this.showSetupUI(match, player);
-        }
-    }
-
-    static updateNetworkSigns(network) {
-        const allGates = this.getAllGatesMap();
-        const networkGates = Object.values(allGates).filter(g => g.network === network);
-        const names = networkGates.map(g => g.name);
-
-        for (const gate of networkGates) {
-            if (gate.signLocation) {
-                this.setSignText(gate.signLocation, gate.name, gate.network, names);
-            }
-        }
-    }
 
     static setSignText(loc, name, network, targets, selectedIndex = -1, isActive = false) {
         const dim = world.getDimension(loc.dim);
@@ -360,6 +322,10 @@ export class GateManager {
                     if (targetList.length > 1) {
                         const nextName = targetList[(idx + 1) % targetList.length];
                         text += `§8${nextName}\n`;
+                    }
+                    if (targetList.length > 2) {
+                        const nextName = targetList[(idx + 2) % targetList.length];
+                        text += `§8${nextName}`;
                     }
                 } else {
                     text += "§4(No Targets)";
@@ -1047,7 +1013,7 @@ export class GateManager {
         const { gateDef, axis, anchor, anchorLoc, allAnchors } = matchCtx;
         const layout = gateDef.layout;
         const portalOpenMat = gateDef.config['portal-open'];
-        const portalClosedMat = gateDef.config['portal-closed'] || "minecraft:air";
+        const portalClosedMat = gateDef.config['portal-closed'];
         const portalBlocks = [];
         const frameBlocks = [];
 
@@ -1073,7 +1039,7 @@ export class GateManager {
 
                 const bLoc = { x: targetX, y: targetY, z: targetZ };
 
-                if (char === '.' || char === '*') {
+                if (char === '.') {
                     const block = dim.getBlock(bLoc);
                     if (block) {
                         block.setType(portalClosedMat);
@@ -1263,7 +1229,7 @@ export class GateManager {
                 else tz += dLat;
 
                 let mat = gateDef.materials[char];
-                if (char === '.' || char === '*') mat = gateDef.config['portal-closed'] || "minecraft:air";
+                if (char === '.') mat = gateDef.config['portal-closed'];
 
                 // Track control locations (the '-' blocks)
                 if (char === '-') {

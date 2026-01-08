@@ -1,12 +1,23 @@
+/**
+ * GATE DEFINITION LEGEND:
+ * - : Control points (must have exactly two). Indicators for sign/button placement.
+ * . : Portal region. Defines the blocks that will become the portal (open/closed).
+ * A-Z, etc. : Frame materials. These characters map to block types in the 'materials' object.
+ * (Space) : Alignment space. Can be any block; the gate matcher ignores these positions.
+ * 
+ * DESIGN RULES:
+ * 1. Each gate must have exactly two control points ('-').
+ * 2. The portal region is defined by '.'.
+ * 3. Frame materials can use any single letter (A-Z, X, etc.).
+ */
+
 export const GateDefinitions = [
     {
         "id": "nethergate",
-        "format_version": "1.0.0",
         "config": {
             "portal-open": "minecraft:purple_stained_glass_pane",
             "portal-closed": "minecraft:air",
-            "button": "minecraft:stone_button",
-            "toowner": "minecraft:false"
+            "button": "minecraft:stone_button"
         },
         "materials": {
             "X": "minecraft:obsidian",
@@ -16,18 +27,16 @@ export const GateDefinitions = [
             " XX",
             "X..X",
             "-..-",
-            "X*.X",
+            "X..X",
             " XX"
         ]
     },
     {
         "id": "wool",
-        "format_version": "1.0.0",
         "config": {
             "portal-open": "minecraft:water",
             "portal-closed": "minecraft:air",
-            "button": "minecraft:stone_button",
-            "toowner": "minecraft:false"
+            "button": "minecraft:stone_button"
         },
         "materials": {
             "X": "minecraft:wool",
@@ -37,18 +46,16 @@ export const GateDefinitions = [
             "XXXXX",
             "X...X",
             "-...-",
-            "X.*.X",
+            "X...X",
             "XXXXX"
         ]
     },
     {
         "id": "endgate",
-        "format_version": "1.0.0",
         "config": {
             "portal-open": "minecraft:end_gateway",
             "portal-closed": "minecraft:air",
-            "button": "minecraft:birch_button",
-            "toowner": "minecraft:false"
+            "button": "minecraft:birch_button"
         },
         "materials": {
             "X": "minecraft:end_stone_bricks",
@@ -58,18 +65,16 @@ export const GateDefinitions = [
             " XX",
             "X..X",
             "-..-",
-            "X*.X",
+            "X..X",
             " XX"
         ]
     },
     {
         "id": "squarenetherglowstonegate",
-        "format_version": "1.0.0",
         "config": {
             "portal-open": "minecraft:purple_stained_glass_pane",
             "portal-closed": "minecraft:air",
-            "button": "minecraft:oak_button",
-            "toowner": "minecraft:false"
+            "button": "minecraft:oak_button"
         },
         "materials": {
             "X": "minecraft:obsidian",
@@ -80,18 +85,16 @@ export const GateDefinitions = [
             " XAX",
             "X...X",
             "-...-",
-            "X.*.X",
+            "X...X",
             " XAX"
         ]
     },
     {
         "id": "watergate",
-        "format_version": "1.0.0",
         "config": {
             "portal-open": "minecraft:kelp_plant",
             "portal-closed": "minecraft:water",
-            "button": "minecraft:brain_coral_wall_fan",
-            "toowner": "minecraft:false"
+            "button": "minecraft:brain_coral_wall_fan"
         },
         "materials": {
             "X": "minecraft:sea_lantern",
@@ -101,40 +104,34 @@ export const GateDefinitions = [
             " XX",
             "X..X",
             "-..-",
-            "X*.X",
+            "X..X",
             " XX"
         ]
     },
     {
         "id": "fireplace",
-        "format_version": "1.0.0",
         "config": {
-            "portal-open": "minecraft:orange_stained_glass_pane",
-            "portal-closed": "minecraft:air",
-            "button": "minecraft:polished_blackstone_button",
-            "toowner": "minecraft:false"
+            "portal-open": "minecraft:soul_fire",
+            "portal-closed": "minecraft:fire",
+            "button": "minecraft:polished_blackstone_button"
         },
         "materials": {
-            "X": "minecraft:bricks",
-            "-": "minecraft:bricks",
-            "C": "minecraft:cobblestone"
+            "X": "minecraft:cobblestone",
+            "-": "minecraft:cobblestone"
         },
         "layout": [
-            " XXX ",
-            "X...X",
-            "-...-",
-            "X*..X",
-            " CCCCC"
+            " X ",
+            "-.-",
+            "X.X",
+            "XXX"
         ]
     },
     {
         "id": "redstone",
-        "format_version": "1.0.0",
         "config": {
             "portal-open": "minecraft:red_stained_glass_pane",
-            "portal-closed": "minecraft:black_stained_glass_pane",
-            "button": "minecraft:stone_button",
-            "toowner": "minecraft:false"
+            "portal-closed": "minecraft:air",
+            "button": "minecraft:stone_button"
         },
         "materials": {
             "X": "minecraft:redstone_block",
@@ -142,19 +139,17 @@ export const GateDefinitions = [
         },
         "layout": [
             "XXXX",
+            "-..-",
             "X..X",
-            "-*.-",
             "XXXX"
         ]
     },
     {
         "id": "lapis",
-        "format_version": "1.0.0",
         "config": {
             "portal-open": "minecraft:blue_stained_glass_pane",
             "portal-closed": "minecraft:air",
-            "button": "minecraft:stone_button",
-            "toowner": "minecraft:false"
+            "button": "minecraft:stone_button"
         },
         "materials": {
             "X": "minecraft:lapis_block",
@@ -162,8 +157,8 @@ export const GateDefinitions = [
         },
         "layout": [
             "XXXX",
+            "-..-",
             "X..X",
-            "-*.-",
             "XXXX"
         ]
     }
