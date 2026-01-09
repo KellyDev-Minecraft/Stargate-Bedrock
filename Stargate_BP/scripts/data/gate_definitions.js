@@ -9,13 +9,31 @@
  * 1. Each gate must have exactly two control points ('-').
  * 2. The portal region is defined by '.'.
  * 3. Frame materials can use any single letter (A-Z, X, etc.).
+ *
+ * PROHIBITED MATERIALS:
+ * - minecraft:portal : Unstable/Unusable. Requires exact 4x5 Obsidian frame or breaks/vanishes immediately.
+ * - minecraft:soul_fire : Unstable. Requires Soul Sand/Soil below or extinguishes immediately.
+ * 
+ * RECOMMENDED:
+ * Use particles or stained glass panes for portal-open.
+ * 
+ * POPULAR PARTICLES:
+ * - minecraft:basic_flame_particle (Fire/Embers)
+ * - minecraft:end_rod (White floating specs, magic looking)
+ * - minecraft:dragon_breath_trail (Purple smoke)
+ * - minecraft:villager_happy (Green sparkles)
+ * - minecraft:totem_particle (Green/Yellow rising energy)
+ * - minecraft:electric_spark_particle (Lightning sparks)
+ * - minecraft:blue_flame_particle (Blue fire)
+ * - minecraft:conduit_particle (Blue/Orange center glow)
+ * - minecraft:lava_drip_particle (Falling lava)
  */
 
 export const GateDefinitions = [
     {
-        "id": "nethergate",
+        "id": "obsidian",
         "config": {
-            "portal-open": "minecraft:purple_stained_glass_pane",
+            "portal-open": "minecraft:dragon_breath_trail",
             "portal-closed": "minecraft:air",
             "button": "minecraft:stone_button"
         },
@@ -58,8 +76,8 @@ export const GateDefinitions = [
             "button": "minecraft:birch_button"
         },
         "materials": {
-            "X": "minecraft:end_stone_bricks",
-            "-": "minecraft:end_stone_bricks"
+            "X": "minecraft:end_bricks",
+            "-": "minecraft:end_bricks"
         },
         "layout": [
             " XX",
@@ -111,7 +129,7 @@ export const GateDefinitions = [
     {
         "id": "fireplace",
         "config": {
-            "portal-open": "minecraft:soul_fire",
+            "portal-open": "minecraft:basic_flame_particle",
             "portal-closed": "minecraft:fire",
             "button": "minecraft:polished_blackstone_button"
         },
@@ -129,8 +147,8 @@ export const GateDefinitions = [
     {
         "id": "redstone",
         "config": {
-            "portal-open": "minecraft:red_stained_glass_pane",
-            "portal-closed": "minecraft:air",
+            "portal-open": "minecraft:lava_drip_particle",
+            "portal-closed": "minecraft:red_stained_glass_pane",
             "button": "minecraft:stone_button"
         },
         "materials": {
@@ -147,8 +165,8 @@ export const GateDefinitions = [
     {
         "id": "lapis",
         "config": {
-            "portal-open": "minecraft:blue_stained_glass_pane",
-            "portal-closed": "minecraft:air",
+            "portal-open": "minecraft:blue_flame_particle",
+            "portal-closed": "minecraft:blue_stained_glass_pane",
             "button": "minecraft:stone_button"
         },
         "materials": {
@@ -160,6 +178,22 @@ export const GateDefinitions = [
             "-..-",
             "X..X",
             "XXXX"
+        ]
+    },
+    {
+        "id": "diamond",
+        "config": {
+            "portal-open": "minecraft:electric_spark_particle",
+            "portal-closed": "minecraft:air",
+            "button": "minecraft:stone_button"
+        },
+        "materials": {
+            "X": "minecraft:diamond_block",
+            "-": "minecraft:diamond_block"
+        },
+        "layout": [
+            "X-..-X",
+            "XX..XX"
         ]
     }
 ];

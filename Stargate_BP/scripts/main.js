@@ -62,4 +62,13 @@ system.runInterval(() => {
         GateManager.tick();
     } catch (e) {
     }
-});
+}, 1);
+
+// Scheduled maintenance (every 5 minutes)
+system.runInterval(() => {
+    try {
+        GateManager.runMaintenance();
+    } catch (e) {
+        console.warn(`Maintenance Error: ${e}`);
+    }
+}, 6000);

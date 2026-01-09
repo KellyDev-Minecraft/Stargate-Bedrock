@@ -3,6 +3,12 @@ import { GateDefinitions } from "./data/gate_definitions.js";
 import { ModalFormData, ActionFormData } from "@minecraft/server-ui";
 
 export class GateManager {
+    static primedGates = [];
+    static activePortals = [];
+    static tickCounter = 0;
+    static recentTeleports = new Map();
+    static gatesCache = null;
+
     static getPotentialGateMatch(signBlock) {
         const attachedBlock = this.getAttachedBlock(signBlock);
         if (!attachedBlock) return null;
@@ -68,6 +74,9 @@ export class GateManager {
         // Update sign text
         const targetNames = prime.targets.map(t => t.name);
         this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name, ...targetNames], prime.selectedTargetIndex);
+
+        // Ensure button exists (Heal if missing)
+        this.healButton(gate, signBlock.dimension);
     }
 
     static findGateBySign(signBlock) {
@@ -446,7 +455,7 @@ export class GateManager {
 
         // Try to get materials from the current gate definition first
         const gateDef = GateDefinitions.find(d => d.id === gate.id);
-        let openMat = "minecraft:portal";
+        let openMat = "minecraft:basic_flame_particle";
         let closedMat = "minecraft:air";
 
         if (gateDef && gateDef.config) {
@@ -461,25 +470,21 @@ export class GateManager {
         console.warn(`setPortalBlocks: ${gate.name} -> ${isOpen ? "OPEN" : "CLOSED"} (${gate.portalBlocks.length} blocks)`);
         let blockType = isOpen ? openMat : closedMat;
 
-        // Bedrock portal block handling
-        if (isOpen && blockType === "minecraft:nether_portal") blockType = "minecraft:portal";
-
         for (const pb of gate.portalBlocks) {
             try {
                 const block = dim.getBlock(pb);
                 if (block) {
-                    const permutation = BlockPermutation.resolve(blockType);
-
-                    if (isOpen && blockType === "minecraft:portal") {
-                        const axis = gate.axis === 'x' ? 'x' : 'z';
-                        try {
-                            block.setPermutation(BlockPermutation.resolve(blockType, { "portal_axis": axis }));
-                        } catch (e) {
-                            block.setPermutation(permutation);
-                        }
-                    } else {
-                        block.setPermutation(permutation);
+                    let permutation;
+                    let isBlock = true;
+                    try {
+                        permutation = BlockPermutation.resolve(blockType);
+                    } catch (e) {
+                        // Not a valid block (likely a particle ID), force Air so path is clear
+                        permutation = BlockPermutation.resolve("minecraft:air");
+                        isBlock = false;
                     }
+
+                    block.setPermutation(permutation);
                 }
             } catch (e) {
                 console.warn(`  - Error setting block at ${pb.x}, ${pb.y}, ${pb.z}: ${e}`);
@@ -490,9 +495,6 @@ export class GateManager {
     static tickCounter = 0;
     static tick() {
         this.tickCounter++;
-        if (this.tickCounter % 100 === 0) {
-            console.warn(`GateManager Tick Heartbeat (Active: ${this.activePortals.length}, Primed: ${this.primedGates.length})`);
-        }
 
         // 1. Handle Primed Gates (Sign touched, waiting for button)
         if (this.primedGates.length > 0) {
@@ -500,13 +502,9 @@ export class GateManager {
                 const p = this.primedGates[i];
                 p.ticksLeft--;
                 if (p.ticksLeft <= 0) {
-                    console.warn(`Priming for ${p.source.name} expired.`);
-
-                    // Revert sign text
                     if (p.source.signLocation) {
                         this.setSignText(p.source.signLocation, p.source.name, p.source.network, [p.source.name]);
                     }
-
                     p.player.sendMessage(`§cActivation window for ${p.source.name} expired.`);
                     this.primedGates.splice(i, 1);
                 }
@@ -515,20 +513,21 @@ export class GateManager {
 
         // 2. Handle Active Portals
         if (this.activePortals.length > 0) {
+            const checkIntegrity = this.tickCounter % 20 === 0;
+
             for (let i = this.activePortals.length - 1; i >= 0; i--) {
                 const ap = this.activePortals[i];
                 ap.ticksRemaining--;
 
-                // Frame Integrity Check
+                // Frame Integrity Check (Only every 1 second / 20 ticks)
                 let frameIntact = true;
-                if (ap.gate.frameBlocks) {
+                if (checkIntegrity && ap.gate.frameBlocks) {
                     const dim = world.getDimension(ap.gate.location.dim);
                     if (dim) {
                         for (const fb of ap.gate.frameBlocks) {
                             try {
                                 const block = dim.getBlock(fb);
                                 if (!block || block.isAir || block.isLiquid) {
-                                    console.warn(`Frame integrity failure for ${ap.gate.name} at ${fb.x}, ${fb.y}, ${fb.z}`);
                                     frameIntact = false;
                                     break;
                                 }
@@ -538,14 +537,10 @@ export class GateManager {
                 }
 
                 if (!frameIntact || ap.ticksRemaining <= 0) {
-                    console.warn(`Closing portal ${ap.gate.name} (Intact: ${frameIntact}, Ticks: ${ap.ticksRemaining})`);
                     this.setPortalBlocks(ap.gate, false);
-
-                    // Revert sign to default
                     if (ap.gate.signLocation) {
                         this.setSignText(ap.gate.signLocation, ap.gate.name, ap.gate.network, []);
                     }
-
                     this.activePortals.splice(i, 1);
                     continue;
                 }
@@ -553,11 +548,40 @@ export class GateManager {
                 // Teleportation Logic
                 const dim = world.getDimension(ap.gate.location.dim);
                 if (dim) {
+                    // Particle Spawning
+                    const gateDef = GateDefinitions.find(d => d.id === ap.gate.id);
+                    let particleId = "minecraft:basic_flame_particle"; // Default
+
+                    if (gateDef && gateDef.config && gateDef.config['portal-open']) {
+                        // Check if portal-open is NOT a block (i.e. it's a particle)
+                        // We do this check to allow 'portal-open' to serve as the particle ID
+                        try {
+                            BlockPermutation.resolve(gateDef.config['portal-open']);
+                            // It is a valid block, so NO particles
+                            particleId = null;
+                        } catch (e) {
+                            // Resolution failed, so it's not a block. Assume it's a particle.
+                            particleId = gateDef.config['portal-open'];
+                        }
+                    }
+
+                    if (particleId) {
+                        try {
+                            // Limit to 2 particles per tick per gate
+                            for (let p = 0; p < 2; p++) {
+                                const randBlock = ap.gate.portalBlocks[Math.floor(Math.random() * ap.gate.portalBlocks.length)];
+                                const px = randBlock.x + Math.random();
+                                const py = randBlock.y + Math.random();
+                                const pz = randBlock.z + Math.random();
+                                dim.spawnParticle(particleId, { x: px, y: py, z: pz });
+                            }
+                        } catch (e) { }
+                    }
+
                     const players = dim.getPlayers({ location: ap.gate.location, maxDistance: 8 });
                     for (const p of players) {
                         const pLoc = { x: Math.floor(p.location.x), y: Math.floor(p.location.y), z: Math.floor(p.location.z) };
-                        const isInPortal = ap.gate.portalBlocks.some(pb => pb.x === pLoc.x && pb.y === pLoc.y && pb.z === pLoc.z);
-                        if (isInPortal) {
+                        if (ap.gate.portalBlocks.some(pb => pb.x === pLoc.x && pb.y === pLoc.y && pb.z === pLoc.z)) {
                             this.teleportPlayer(p, ap.target);
                         }
                     }
@@ -577,6 +601,7 @@ export class GateManager {
         if (!dim) return;
 
         this.recentTeleports.set(player.id, now);
+        // ... rest of teleport logic
 
         // Use portalCenter if available, otherwise fallback to location
         let baseLoc = targetGate.portalCenter || targetGate.location;
@@ -624,302 +649,194 @@ export class GateManager {
     }
 
     static getGateData(key) {
+        if (this.gatesCache && this.gatesCache[key]) return this.gatesCache[key];
         const allGates = this.getAllGatesMap();
         return allGates[key] || null;
     }
 
     static saveGateData(key, data) {
         const db = this.getDatabaseEntity();
-        if (!db) {
-            console.warn("Failed to save gate data: DB Entity not found/created.");
-            return;
-        }
+        if (!db) return;
+
+        // Update Cache
+        if (!this.gatesCache) this.gatesCache = {};
+        this.gatesCache[key] = data;
 
         // Clean up old tags for this key
-        // We match "gate:KEY" prefix. 
-        // Old format: gate:KEY|JSON
-        // New format: gate:KEY|i|total|JSON_CHUNK
         const prefix = `gate:${key}|`;
-        const tags = db.getTags();
-        for (const tag of tags) {
-            if (tag.startsWith(prefix)) {
-                db.removeTag(tag);
-            }
+        for (const tag of db.getTags()) {
+            if (tag.startsWith(prefix)) db.removeTag(tag);
         }
 
         const json = JSON.stringify(data);
-        const MAX_TAG_LEN = 250; // Safety margin below 255
-        // We need to reserve space for prefix: "gate:KEY|i|total|"
-        // Approx overhead: 5 ("gate:") + 30 (key) + 1 ("|") + 2 (index) + 1 ("|") + 2 (total) + 1 ("|") = ~42 chars.
-        // Let's assume safe payload size of 200 chars.
-        const CHUNK_SIZE = 200;
-
+        const CHUNK_SIZE = 150; // Reduced to 150 to safely fit within 255 char tag limit (overhead is ~40-60 chars)
         const totalChunks = Math.ceil(json.length / CHUNK_SIZE);
 
         for (let i = 0; i < totalChunks; i++) {
             const chunk = json.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-            // Format: gate:KEY|index|total|data
-            const tag = `gate:${key}|${i}|${totalChunks}|${chunk}`;
-            if (tag.length > 255) {
-                console.warn(`Critical: Generated tag exceeds limit! Length: ${tag.length}`);
-            }
-            db.addTag(tag);
+            db.addTag(`gate:${key}|${i}|${totalChunks}|${chunk}`);
         }
-        console.warn(`Saved gate data for ${key} in ${totalChunks} chunks.`);
     }
 
     static getAllGatesMap() {
+        if (this.gatesCache) return this.gatesCache;
+
         const db = this.getDatabaseEntity();
         if (!db) return {};
 
-        const gates = {};
-        const fragments = {}; // Map<key, Array<string>>
+        const fragments = {};
+        for (const tag of db.getTags()) {
+            if (!tag.startsWith("gate:")) continue;
+            try {
+                const parts = tag.split('|');
+                if (parts.length < 4) continue;
 
-        const tags = db.getTags();
-        for (const tag of tags) {
-            if (tag.startsWith("gate:")) {
-                try {
-                    // format: gate:KEY|index|total|data
-                    // split by '|'
-                    const parts = tag.split('|');
-                    if (parts.length < 4) continue;
+                const key = parts[0].substring(5);
+                const index = parseInt(parts[1]);
+                const total = parseInt(parts[2]);
+                const data = parts.slice(3).join('|');
 
-                    // gate:KEY is parts[0]
-                    const key = parts[0].substring(5); // remove "gate:"
-                    const index = parseInt(parts[1]);
-                    const total = parseInt(parts[2]);
-                    // data is everything after the 3rd pipe. 
-                    // Using split means data containing | might be split. Join back.
-                    const data = parts.slice(3).join('|');
-
-                    if (!fragments[key]) {
-                        fragments[key] = new Array(total).fill("");
-                    }
-                    fragments[key][index] = data;
-                } catch (e) {
-                    console.warn(`Failed to parse gate tag: ${e}`);
-                }
-            }
+                if (!fragments[key]) fragments[key] = new Array(total);
+                fragments[key][index] = data;
+            } catch (e) { }
         }
 
-        // Reassemble
-        let loadedCount = 0;
+        const gates = {};
         for (const key in fragments) {
             try {
                 const parts = fragments[key];
-                // Check if we have all parts (no empty strings)
-                // Note: parts is pre-filled with empty strings.
-                /* 
-                   If a part is missing, it will remain empty string (if we initialized correctly) 
-                   or undefined if we just assigned by index.
-                */
-                if (parts.some(p => p === undefined || p === "")) {
-                    console.warn(`Incomplete data for gate ${key}`);
-                    continue;
-                }
-
-                const json = parts.join('');
-                gates[key] = JSON.parse(json);
-                loadedCount++;
-            } catch (e) {
-                console.warn(`Failed to reassemble gate ${key}: ${e}`);
-            }
+                if (parts.some(p => p === undefined)) continue;
+                gates[key] = JSON.parse(parts.join(''));
+            } catch (e) { }
         }
-        console.warn(`getAllGatesMap: Loaded ${loadedCount} gates.`);
 
-        // Validation Pass: Ensure sign and button exist and sign text is correct.
-        const validGates = {};
+        this.gatesCache = gates;
+        return gates;
+    }
+
+    /**
+     * Performs maintenance on all gates: healing signs, buttons, and checking integrity.
+     */
+    static runMaintenance() {
+        const gates = this.getAllGatesMap();
+        console.warn(`[Stargate] Running maintenance on ${Object.keys(gates).length} gates...`);
+
         for (const key in gates) {
             const gate = gates[key];
-            if (!gate.signLocation) {
-                validGates[key] = gate;
-                continue;
-            }
-
             try {
-                const dim = world.getDimension(gate.signLocation.dim || "overworld");
-                if (!dim) {
-                    validGates[key] = gate; // Dimension not loaded?
-                    continue;
-                }
+                const dim = world.getDimension(gate.location.dim);
+                if (!dim) continue;
 
-                const block = dim.getBlock(gate.signLocation);
-
-                if (block) {
-                    if (!block.typeId.includes("sign")) {
-                        console.warn(`Gate ${gate.name} (${key}) sign missing (found ${block.typeId}). Removing.`);
-                        this.deleteGate(key);
-                        delete gates[key];
-                        continue;
-                    }
-
-                    // Verify Sign Text
-                    const signComp = block.getComponent("minecraft:sign");
-                    if (signComp) {
-                        const currentText = signComp.getText();
-                        if (!currentText.includes(gate.name) || !currentText.includes(gate.network)) {
-                            console.warn(`Sign text for ${gate.name} is wrong. Fixing.`);
-                            this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name]);
+                if (gate.signLocation) {
+                    const block = dim.getBlock(gate.signLocation);
+                    if (block) {
+                        if (!block.typeId.includes("sign")) {
+                            this.deleteGate(key);
+                            continue;
+                        }
+                        const signComp = block.getComponent("minecraft:sign");
+                        if (signComp) {
+                            const currentText = signComp.getText();
+                            if (!currentText.includes(gate.name)) {
+                                this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name]);
+                            }
                         }
                     }
                 }
 
-                // 5. Healing: Ensure portalCenter and frameBlocks exist
+                // Healing missing data
                 if (!gate.portalCenter || !gate.frameBlocks || gate.frameBlocks.length === 0) {
-                    console.warn(`Healing gate data (missing center or frame): ${gate.name}`);
                     const gateDef = GateDefinitions.find(d => d.id === gate.id);
                     if (gateDef) {
                         const anchorBlock = dim.getBlock(gate.location);
                         if (anchorBlock) {
                             const match = this.matchGatePattern(gateDef, anchorBlock);
                             if (match) {
-                                // Re-calculate portal and frame blocks
                                 const portalBlocks = [];
                                 const frameBlocks = [];
                                 const layout = gateDef.layout;
                                 const anchor = match.matchedAnchor;
-
                                 for (let r = 0; r < layout.length; r++) {
                                     for (let c = 0; c < layout[r].length; c++) {
                                         const char = layout[r][c];
                                         const dy = anchor.r - r;
                                         const dLat = c - anchor.c;
-
                                         let tx = gate.location.x;
                                         let ty = gate.location.y + dy;
                                         let tz = gate.location.z;
-
                                         if (gate.axis === 'x') tx += dLat;
                                         else tz += dLat;
-
                                         const bLoc = { x: tx, y: ty, z: tz };
                                         if (char === '.' || char === '*') portalBlocks.push(bLoc);
                                         else if (char === 'X') frameBlocks.push(bLoc);
                                     }
                                 }
-
                                 gate.portalBlocks = portalBlocks;
                                 gate.frameBlocks = frameBlocks;
-
-                                // Recalculate Center
-                                let cx = 0, cy = 0, cz = 0;
                                 if (portalBlocks.length > 0) {
+                                    let cx = 0, cy = 0, cz = 0;
                                     portalBlocks.forEach(pb => { cx += pb.x; cy += pb.y; cz += pb.z; });
-                                    gate.portalCenter = {
-                                        x: cx / portalBlocks.length,
-                                        y: cy / portalBlocks.length,
-                                        z: cz / portalBlocks.length
-                                    };
+                                    gate.portalCenter = { x: cx / portalBlocks.length, y: cy / portalBlocks.length, z: cz / portalBlocks.length };
                                 }
-                                console.warn(`Healed center/frame for ${gate.name}. New center: ${JSON.stringify(gate.portalCenter)}`);
+                                this.saveGateData(key, gate);
                             }
                         }
                     }
                 }
 
-                // 6. Button Healing & Placement Logic
-                if (!gate.buttonLocation) {
-                    console.warn(`Healing buttonLocation for legacy gate: ${gate.name}`);
-                    // Use the same logic as createGate to find an anchor and place a button
-                    // We'll have to re-match or assume based on signLocation relative to location.
-                    const signLoc = gate.signLocation;
-                    const anchorLoc = gate.location;
-
-                    if (signLoc && anchorLoc) {
-                        const offset = {
-                            x: signLoc.x - anchorLoc.x,
-                            y: signLoc.y - anchorLoc.y,
-                            z: signLoc.z - anchorLoc.z
-                        };
-
-                        // For legacy healing, we might not have allAnchors easily. 
-                        // Let's just try to find ANY air block adjacent to the frame? 
-                        // Better yet: If matchGatePattern can be called here:
-                        const gateDef = GateDefinitions.find(d => d.id === gate.id);
-                        if (gateDef) {
-                            const anchorBlock = dim.getBlock(anchorLoc);
-                            if (anchorBlock) {
-                                const match = this.matchGatePattern(gateDef, anchorBlock);
-                                if (match && match.allAnchors) {
-                                    let buttonAnchor = null;
-                                    for (const a of match.allAnchors) {
-                                        if (a.x !== anchorLoc.x || a.y !== anchorLoc.y || a.z !== anchorLoc.z) {
-                                            buttonAnchor = a;
-                                            break;
-                                        }
-                                    }
-                                    if (buttonAnchor) {
-                                        gate.buttonLocation = {
-                                            x: buttonAnchor.x + offset.x,
-                                            y: buttonAnchor.y + offset.y,
-                                            z: buttonAnchor.z + offset.z,
-                                            dim: anchorLoc.dim
-                                        };
-                                        console.warn(`Healed buttonLocation for ${gate.name} at ${gate.buttonLocation.x},${gate.buttonLocation.y},${gate.buttonLocation.z}`);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 6. Final Integrity Check (Button, Frame)
-
-                // Button Check (Heal if missing)
-                if (gate.buttonLocation) {
-                    const buttonBlock = dim.getBlock(gate.buttonLocation);
-                    if (!buttonBlock || (!buttonBlock.typeId.includes("button") && buttonBlock.isAir)) {
-                        console.warn(`Healing missing button for ${gate.name} at ${gate.buttonLocation.x}, ${gate.buttonLocation.y}, ${gate.buttonLocation.z}`);
-                        let buttonType = "minecraft:wooden_button";
-                        if (block && (block.typeId.includes("mangrove") || block.typeId.includes("crimson"))) buttonType = "minecraft:mangrove_button";
-                        else if (block && block.typeId.includes("cherry")) buttonType = "minecraft:cherry_button";
-
-                        try {
-                            if (buttonBlock) buttonBlock.setType(buttonType);
-                        } catch (e) { }
-                    }
-                }
-
-                // Frame Check (Log damage)
-                if (gate.frameBlocks) {
-                    let missingFrame = 0;
-                    for (const fb of gate.frameBlocks) {
-                        try {
-                            const b = dim.getBlock(fb);
-                            if (!b || b.isAir || b.isLiquid) missingFrame++;
-                        } catch (e) { }
-                    }
-                    if (missingFrame > 0) {
-                        console.warn(`Gate ${gate.name} frame is damaged (${missingFrame} blocks missing).`);
-                    }
-                }
-
-                validGates[key] = gate;
-            } catch (e) {
-                // Chunk unloaded or other error
-                validGates[key] = gate;
-            }
+                // Button Healing
+                this.healButton(gate, dim);
+            } catch (e) { }
         }
+    }
 
-        return validGates;
+    /**
+     * Ensures the button for a gate exists, placing it if missing.
+     */
+    static healButton(gate, dim) {
+        if (!gate.buttonLocation) return;
+        try {
+            const buttonBlock = dim.getBlock(gate.buttonLocation);
+            if (buttonBlock && (buttonBlock.isAir || !buttonBlock.typeId.includes("button"))) {
+                let buttonType = "minecraft:wooden_button";
+                // Try to match button type to sign if possible, or just use default
+                const gateDef = GateDefinitions.find(d => d.id === gate.id);
+                if (gateDef && gateDef.config && gateDef.config.button) {
+                    buttonType = gateDef.config.button;
+                }
+
+                buttonBlock.setType(buttonType);
+
+                // Try to set orientation if we have exitDirection
+                if (gate.exitDirection) {
+                    let facingDir = 3; // South
+                    if (gate.exitDirection.rotY === 180) facingDir = 2; // North
+                    else if (gate.exitDirection.rotY === 90) facingDir = 5; // East (Wait, exit West means facing East?)
+                    else if (gate.exitDirection.rotY === 270) facingDir = 4; // West
+
+                    // Note: Bedrock button facing_direction is where it's ATTACHED.
+                    // If exit is South, sign is on North face of block, facing South.
+                    // Button should probably match.
+                    try {
+                        const perm = BlockPermutation.resolve(buttonType, { "facing_direction": facingDir });
+                        buttonBlock.setPermutation(perm);
+                    } catch (e) { }
+                }
+            }
+        } catch (e) { }
     }
 
     static deleteGate(key) {
+        // Update Cache
+        if (this.gatesCache) delete this.gatesCache[key];
+
         const db = this.getDatabaseEntity();
         if (!db) return;
 
-        // Remove all chunk tags for this key
-        // Tag format: gate:KEY|...
         const prefix = `gate:${key}|`;
-        const tags = db.getTags();
-        let count = 0;
-        for (const tag of tags) {
-            if (tag.startsWith(prefix)) {
-                db.removeTag(tag);
-                count++;
-            }
+        for (const tag of db.getTags()) {
+            if (tag.startsWith(prefix)) db.removeTag(tag);
         }
-        console.warn(`Deleted gate ${key} (${count} tags removed).`);
     }
 
     static getDatabaseEntity() {
@@ -1118,7 +1035,6 @@ export class GateManager {
         }
 
         let finalOpenMat = portalOpenMat;
-        if (portalOpenMat === "minecraft:nether_portal") finalOpenMat = "minecraft:portal";
 
         // Calculate Portal Center
         let centerX = 0, centerY = 0, centerZ = 0;

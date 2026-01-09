@@ -6,11 +6,9 @@ export function setupBlockInteractions() {
     // Unified Interaction Listener
     world.beforeEvents.playerInteractWithBlock.subscribe((event) => {
         const { block, player } = event;
-        console.warn(`Interaction Detected: ${block.typeId} at ${block.x},${block.y},${block.z}`);
 
         // Check for Sign interaction
         if (block.typeId.includes("sign")) {
-            console.warn("Sign interaction matched!");
 
             // 1. Check if it's already a registered gate
             const isGate = GateManager.findGateBySign(block);
@@ -35,7 +33,6 @@ export function setupBlockInteractions() {
             }
 
             // If neither, DO NOT cancel event (allows vanilla sign editing)
-            console.warn("No gate match found, allowing vanilla sign editing.");
         }
 
         // Check for Button interaction
@@ -68,6 +65,9 @@ export function setupBlockInteractions() {
 
             system.run(() => {
                 try {
+                    // Check again inside system.run to prevent double-triggering
+                    if (!player.hasTag("stargate_summon_mode")) return;
+
                     player.removeTag("stargate_summon_mode");
                     player.removeTag(typeTag);
                     GateManager.autoBuildGate(player, gateDef, startLoc, axis);

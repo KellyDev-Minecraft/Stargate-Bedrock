@@ -4,7 +4,6 @@ import { GateManager } from "./gate-manager.js";
 
 export class UiManager {
     static async showGateSelection(player) {
-        console.warn(`UiManager.showGateSelection called for ${player.name}`);
         const form = new ActionFormData()
             .title("Stargate Casting Guide")
             .body("Select a gate type to view its construction plan.");
@@ -24,7 +23,6 @@ export class UiManager {
 
         const response = await form.show(player);
         if (!response || response.canceled) return;
-        console.warn(`Form response: selection=${response.selection}`);
 
         const selectedGate = sortedGatesList[response.selection].gate;
         if (selectedGate) {
