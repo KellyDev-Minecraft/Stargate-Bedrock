@@ -6,7 +6,7 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 
 - **Classic Gate Building**: Build gates block-by-block using traditional layouts (e.g. Obsidian Nether Gate).
 - **Gate Detection**: The addon automatically detects valid gate frames when you push the button.
-- **Visuals**: Portals fill with blocks (Nether Portal, Water, etc.) upon activation.
+- **Visuals**: Portals fill with blocks (Nether Portal, Water, etc.) or **Particle Effects** upon activation.
 - **Gate Plans Book**: An in-game manual ("Stargate Casting Guide") that shows you exactly how to build every available gate type.
 - **Customizable**: Add your own gate designs via JSON configuration.
 
@@ -38,20 +38,20 @@ Run the build script from the project root:
 python3 build_addon.py
 ```
 This will:
-1. Merge all gate definitions from `gate_definitions/` into the Behavior Pack.
+1. Increment the addon version.
 2. Update the addon version based on the git commit count.
 3. Package everything into `Stargate_v1.1.X.mcaddon`.
 
 ### Adding Custom Gates
-1. Create a new `.json` file in `gate_definitions/`.
-2. Follow the format:
-    ```json
+1. Open `Stargate_BP/scripts/data/gate_definitions.js`.
+2. Add a new object to the `GateDefinitions` array:
+    ```javascript
     {
         "id": "my_custom_gate",
-        "format_version": "1.0.0",
         "config": {
-            "portal-open": "minecraft:diamond_block",
-            "portal-closed": "minecraft:air"
+            "portal-open": "minecraft:energy_swirl_particle",
+            "portal-closed": "minecraft:air",
+            "button": "minecraft:stone_button"
         },
         "materials": {
             "X": "minecraft:gold_block",
@@ -64,7 +64,16 @@ This will:
         ]
     }
     ```
-3. Re-run `python3 build_addon.py`.
+
+### Material Constraints
+> [!WARNING]
+> Certain blocks are **prohibited** for use in `portal-open` because they are physically unstable and will break immediately when placed by scripts:
+> - `minecraft:portal` (Nether Portal Block): Requires exact 4x5 Obsidian frame.
+> - `minecraft:soul_fire`: Requires Soul Sand/Soil below.
+> - `minecraft:fire`: Extinguishes quickly.
+>
+> **Recommended**: Use Particle IDs (e.g. `minecraft:end_rod`, `minecraft:basic_flame_particle`) or decorative blocks (Glass, Ice, etc.) instead.
+3. Re-run `python3 build.py`.
 
 ## License
 [GNU Lesser General Public License Version 3.0](LICENSE.LESSER)
