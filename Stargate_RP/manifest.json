@@ -2,12 +2,12 @@
     "format_version": 2,
     "header": {
         "description": "Stargate Bedrock Resource Pack",
-        "name": "Stargate RP (1.1.17)",
+        "name": "Stargate RP (1.1.18)",
         "uuid": "685c4909-66c3-4d45-930c-720498309602",
         "version": [
             1,
             1,
-            17
+            18
         ],
         "min_engine_version": [
             1,
@@ -23,7 +23,7 @@
             "version": [
                 1,
                 1,
-                17
+                18
             ]
         }
     ],
@@ -33,7 +33,7 @@
             "version": [
                 1,
                 1,
-                17
+                18
             ]
         }
     ]
