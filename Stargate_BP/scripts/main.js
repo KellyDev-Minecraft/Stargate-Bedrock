@@ -3,8 +3,10 @@ import { setupBlockInteractions } from "./events.js";
 import { UiManager } from "./ui-manager.js";
 import { GateManager } from "./gate-manager.js";
 import { GateDefinitions } from "./data/gate_definitions.js";
+import { VERSION } from "./version.js";
 
-console.warn("Stargate Script Loading...");
+console.warn(`Stargate Script Loading (v${VERSION})...`);
+
 
 system.run(() => {
     try {
@@ -12,22 +14,25 @@ system.run(() => {
         // Falling back to Entity-Tag storage handled in GateManager.
 
         world.afterEvents.worldInitialize.subscribe(() => {
-            console.warn("Stargate Addon Initialized");
+            console.warn(`Stargate Addon Initialized (v${VERSION})`);
 
             // Ensure ticking area for Database Entity
             try {
                 const overworld = world.getDimension("overworld");
                 // Add a ticking area at 0,0,0 radius 1 to keep DB entity loaded
                 overworld.runCommandAsync("tickingarea add circle 0 0 0 2 stargate_db_area true");
-                console.warn("Ticking area established for StargateDB.");
-            } catch (e) {
-                console.warn(`Failed to create ticking area: ${e}`);
-            }
+            } catch (e) { }
         });
 
         setupBlockInteractions();
         setupItemInteractions();
+
+        // Run maintenance immediately on startup to heal existing gates
+        system.run(() => {
+            GateManager.runMaintenance();
+        });
     } catch (e) {
+
         console.warn("Critical Script Error: " + e + "\n" + e.stack);
     }
 });
@@ -39,13 +44,20 @@ function setupItemInteractions() {
         const player = event.source;
 
         if (item?.typeId === "stargate:plan_book") {
-            // If in summon mode or actively building, only open UI if sneaking
-            if ((player.hasTag("stargate_summon_mode") || player.hasTag("stargate_summoning")) && !player.isSneaking) {
-                player.sendMessage("§eSneak + Right-click air to open selection menu; or Right-click a block to summon.§r");
-                return;
-            }
-
             system.run(() => {
+                // Check for synchronization tag from block interaction
+                if (player.hasTag("stargate:ui_handled")) {
+                    player.removeTag("stargate:ui_handled");
+                    return;
+                }
+
+                // If in summon mode or actively building, only open UI if sneaking
+                if ((player.hasTag("stargate_summon_mode") || player.hasTag("stargate_summoning")) && !player.isSneaking) {
+
+                    player.sendMessage("§eSneak + Right-click air to open selection menu; or Right-click a block to summon.§r");
+                    return;
+                }
+
                 try {
                     UiManager.showGateSelection(player);
                 } catch (e) {

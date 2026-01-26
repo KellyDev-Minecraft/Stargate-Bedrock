@@ -4,11 +4,13 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 
 ## Features
 
-- **Classic Gate Building**: Build gates block-by-block using traditional layouts (e.g. Obsidian Nether Gate).
-- **Gate Detection**: The addon automatically detects valid gate frames when you push the button.
-- **Visuals**: Portals fill with blocks (Nether Portal, Water, etc.) or **Particle Effects** upon activation.
-- **Gate Plans Book**: An in-game manual ("Stargate Casting Guide") that shows you exactly how to build every available gate type.
-- **Customizable**: Add your own gate designs via JSON configuration.
+- **Classic Gate Building**: Build gates block-by-block using traditional layouts.
+- **Symmetric Activation**: Both ends of a portal activate and deactivate simultaneously.
+- **Bi-directional Teleportation**: Return through a portal to your source without re-dialing.
+- **Network Selection**: Advanced UI for selecting existing networks or creating new ones.
+- **Gate Options**: Configure gates with options like Hidden, Always On, Private, and more.
+- **Edit on the Fly**: Right-click a gate with the Casting Guide to update its configuration.
+- **Resilient Database**: Automatic state cleanup and persistent storage via DB entity.
 
 ## Installation
 
@@ -18,14 +20,12 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 
 ## Usage
 
-1. **Get the Casting Guide**: Give yourself the `stargate:plan_book` item or search for "Stargate Casting Guide" in the Creative inventory.
-2. **Choose a Design**: Use the book to select a gate type (e.g., "nethergate").
-3. **Build the Frame**: Follow the plan shown in the book.
-    - `X`: Frame Material
-    - `-`: Frame Material where the Button/Sign goes
-    - `.`: Empty space (will become portal)
-4. **Activate**: Place a button on the block indicated by `-` and press it.
-5. **Teleport**: (Coming Soon) Walk through to be transported to another gate.
+1. **Get the Casting Guide**: Give yourself the `stargate:plan_book` item.
+2. **Choose a Design**: Use the book to select a gate type.
+3. **Build the Frame**: follow the holographic guide or the plan in the book.
+4. **Setup**: Place a sign on the indicated block and right-click it with the Casting Guide.
+5. **Dial**: Cycle targets by tapping the sign, then press the button to activate.
+6. **Edit**: Use the Casting Guide on an existing gate's frame or sign to change its name, network, or options.
 
 ## Development
 
@@ -33,14 +33,14 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 - Python 3
 
 ### Building
-Run the build script from the project root:
+Run the build script:
 ```bash
-python3 build_addon.py
+python3 build.py
 ```
 This will:
 1. Increment the addon version.
-2. Update the addon version based on the git commit count.
-3. Package everything into `Stargate_v1.1.X.mcaddon`.
+2. Generate `version.js` for script-side access.
+3. Package everything into a `.mcaddon` file.
 
 ### Adding Custom Gates
 1. Open `Stargate_BP/scripts/data/gate_definitions.js`.

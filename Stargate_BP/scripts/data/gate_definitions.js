@@ -140,8 +140,7 @@ export const GateDefinitions = [
         "layout": [
             " X ",
             "-.-",
-            "X.X",
-            "XXX"
+            "X.X"
         ]
     },
     {

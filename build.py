@@ -40,6 +40,11 @@ def bump_version():
     with open(BP_MANIFEST, "w") as f:
         json.dump(bp_data, f, indent=2)
     
+    # 1.5 Update version.js
+    version_js_path = os.path.join(BP_NAME, "scripts", "version.js")
+    with open(version_js_path, "w") as f:
+        f.write(f'export const VERSION = "{new_version_str}";\n')
+
     print(f"Bumping version to {new_version_str}...")
 
     # 2. Sync to RP Version
