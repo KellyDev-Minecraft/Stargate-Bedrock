@@ -7,9 +7,9 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 - **Classic Gate Building**: Build gates block-by-block using traditional layouts.
 - **Symmetric Activation**: Both ends of a portal activate and deactivate simultaneously.
 - **Bi-directional Teleportation**: Return through a portal to your source without re-dialing.
-- **Network Selection**: Advanced UI for selecting existing networks or creating new ones.
-- **Gate Options**: Configure gates with options like Hidden, Always On, Private, and more.
-- **Edit on the Fly**: Right-click a gate with the Casting Guide to update its configuration.
+- **Sign-Based Setup & Configuration**: Establish gates without any menus. Define the name, network, and options by writing directly on the sign before activation.
+- **Vanilla Sign Editing**: Sneak-right-click an existing sign to open the vanilla editor and dynamically rename gates or change networks in real-time.
+- **Rich Flag Options**: Configure gates with flags on the sign's 4th line (e.g., Always-On, Private, Hidden, Backward Exit, Silent, and more).
 - **Resilient Database**: Automatic state cleanup and persistent storage via DB entity.
 
 ## Installation
@@ -21,11 +21,26 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
 ## Usage
 
 1. **Get the Casting Guide**: Give yourself the `stargate:plan_book` item.
-2. **Choose a Design**: Use the book to select a gate type.
-3. **Build the Frame**: follow the holographic guide or the plan in the book.
-4. **Setup**: Place a sign on the indicated block and right-click it with the Casting Guide.
-5. **Dial**: Cycle targets by tapping the sign, then press the button to activate.
-6. **Edit**: Use the Casting Guide on an existing gate's frame or sign to change its name, network, or options.
+2. **Choose a Design**: Sneak + right-click with the book to display the guide and plans.
+3. **Build the Frame**: Follow the holographic guide or the plan in the book.
+4. **Format the Sign**: Place a sign on the block indicated by `-` and write its details directly on it:
+   - **Line 1**: `-GateName-` (e.g., `-Alpha-`)
+   - **Line 3**: `NetworkName` (e.g., `Public`)
+   - **Line 4**: `Flags` (optional, e.g., `AP` for Always-on + Private)
+5. **Place Button**: Place a button on the other control block (`-`).
+6. **Establish**: Right-click the sign. If formatted correctly, it establishes instantly with zero menus! (Right-clicking a blank sign prints the formatting guide to chat).
+7. **Dial**: Right-click the sign to cycle destinations on the network, then press the button to activate the portal.
+8. **Edit**: Sneak + Right-Click the sign to open the vanilla sign editor, update the text (names, networks, or flags), and right-click again to save changes to the database instantly.
+
+### Sign Flags (Line 4):
+- **`A` (Always-On)**: Permanently active portal blocks. Walk through to go to destination instantly.
+- **`R` (Random Gate)**: Permanently active. Teleports entering players to a completely random coordinate location in the world.
+- **`H` (Hidden)**: Hides the gate from target dialing/cycling lists on other gates.
+- **`P` (Private)**: Locks the gate to its creator. Only the owner can dial or edit this sign.
+- **`B` (Backwards Exit)**: Reverses exit momentum, spawning you out the back face of the frame.
+- **`Q` (Silent)**: Disables chat logs and portal sound effects during teleports.
+- **`N` (Hide Network)**: Replaces the network name on Line 3 with boundaries to hide it from others.
+- **`U` (Always-On Direct Link)**: A permanent direct connection between two specific gates.
 
 ## Development
 

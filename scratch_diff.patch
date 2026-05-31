@@ -1,0 +1,842 @@
+diff --git a/README.md b/README.md
+index 43514f2e..1e3595ed 100644
+--- a/README.md
++++ b/README.md
+@@ -24,8 +24,22 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
+     - `X`: Frame Material
+     - `-`: Frame Material where the Button/Sign goes
+     - `.`: Empty space (will become portal)
+-4. **Activate**: Place a button on the block indicated by `-` and press it.
+-5. **Teleport**: (Coming Soon) Walk through to be transported to another gate.
++4. **Establish the Gate**: Place a sign on the block indicated by `-` and a button on the other `-` block. You can write your gate settings directly on the sign before activating:
++    - **Line 1**: `-GateName-` (e.g., `-Alpha-`)
++    - **Line 3**: `NetworkName` (e.g., `Public`)
++    - **Line 4**: `Flags` (e.g., `AP` for Always-on + Private)
++5. **Activate**: Right-click the sign. If formatted correctly, it will instantly establish and activate without any UI menus! (If the sign is blank, it opens a guided setup UI instead).
++6. **Use & Rename**: Right-click to cycle destinations and press the button to teleport. **Sneak + Right-click** the sign to open the vanilla sign editor, allowing you to dynamically rename or change networks in real-time!
++
++### Sign Flags (Line 4):
++- **`A` (Always-On)**: Permanently active portal blocks. Walk through to go to destination instantly.
++- **`R` (Random Gate)**: Permanently active. Teleports entering players to a completely random coordinate location in the world.
++- **`H` (Hidden)**: Hides the gate from target dialing/cycling lists on other gates.
++- **`P` (Private)**: Locks the gate to its creator. Only the owner can dial or edit this sign.
++- **`B` (Backwards Exit)**: Reverses exit momentum, spawning you out the back face of the frame.
++- **`Q` (Silent)**: Disables chat logs and portal sound effects during teleports.
++- **`N` (Hide Network)**: Replaces the network name on Line 3 with boundaries to hide it from others.
++- **`U` (Bungee server link)**: Permanent linkage simulation.
+ 
+ ## Development
+ 
+diff --git a/Stargate_BP/manifest.json b/Stargate_BP/manifest.json
+index 1ad86627..2ea26df3 100644
+--- a/Stargate_BP/manifest.json
++++ b/Stargate_BP/manifest.json
+@@ -2,17 +2,17 @@
+   "format_version": 2,
+   "header": {
+     "description": "Stargate Bedrock Behavior Pack",
+-    "name": "Stargate BP (1.1.18)",
++    "name": "Stargate BP (1.2.1)",
+     "uuid": "43916969-950c-4573-b328-765089309601",
+     "version": [
+       1,
+-      1,
+-      18
++      2,
++      1
+     ],
+     "min_engine_version": [
+       1,
+-      21,
+-      131
++      26,
++      20
+     ]
+   },
+   "modules": [
+@@ -22,8 +22,8 @@
+       "uuid": "2059345c-204b-4654-b4a1-098867540232",
+       "version": [
+         1,
+-        1,
+-        18
++        2,
++        1
+       ],
+       "entry": "scripts/main.js",
+       "language": "javascript"
+diff --git a/Stargate_BP/scripts/data/gate_definitions.js b/Stargate_BP/scripts/data/gate_definitions.js
+index 6226aaf2..69559535 100644
+--- a/Stargate_BP/scripts/data/gate_definitions.js
++++ b/Stargate_BP/scripts/data/gate_definitions.js
+@@ -140,8 +140,7 @@ export const GateDefinitions = [
+         "layout": [
+             " X ",
+             "-.-",
+-            "X.X",
+-            "XXX"
++            "X.X"
+         ]
+     },
+     {
+diff --git a/Stargate_BP/scripts/events.js b/Stargate_BP/scripts/events.js
+index 5e63222c..64e4f449 100644
+--- a/Stargate_BP/scripts/events.js
++++ b/Stargate_BP/scripts/events.js
+@@ -13,6 +13,16 @@ export function setupBlockInteractions() {
+             // 1. Check if it's already a registered gate
+             const isGate = GateManager.findGateBySign(block);
+             if (isGate) {
++                // If player is sneaking, allow vanilla sign editing ONLY if they have control permission
++                if (player.isSneaking) {
++                    if (GateManager.hasGateControlPermission(player, isGate)) {
++                        return;
++                    } else {
++                        event.cancel = true;
++                        player.sendMessage("§cYou do not have permission to edit this Stargate's sign!§r");
++                        return;
++                    }
++                }
+                 // Cancel vanilla event and handle interaction
+                 event.cancel = true;
+                 system.run(() => {
+@@ -24,9 +34,26 @@ export function setupBlockInteractions() {
+             // 2. Not a gate? Check if it MATHER a pattern
+             const match = GateManager.getPotentialGateMatch(block);
+             if (match) {
+-                // Cancel vanilla event and show setup UI
++                // Check permissions to establish gates
++                if (!GateManager.hasGateBuilderPermission(player)) {
++                    player.sendMessage("§cYou do not have permission to establish Stargates!§r");
++                    return;
++                }
++
++                // Cancel vanilla event
+                 event.cancel = true;
+                 system.run(() => {
++                    // Try to auto-recreate from sign text if it looks like a stargate sign
++                    const signComp = block.getComponent("minecraft:sign");
++                    if (signComp) {
++                        const text = signComp.getText();
++                        const parsed = GateManager.parseStargateSignText(text);
++                        if (parsed) {
++                            GateManager.recreateGateFromSignText(match, block, parsed.name, parsed.network, player);
++                            return;
++                        }
++                    }
++
+                     GateManager.showSetupUI(match, player, block);
+                 });
+                 return;
+@@ -84,6 +111,19 @@ export function setupBlockInteractions() {
+         const result = GateManager.findGateByBlock(block);
+         if (result) {
+             const { key, gate } = result;
++
++            // Enforce control permission on gate destruction
++            if (!GateManager.hasGateControlPermission(player, gate)) {
++                player.sendMessage("§cYou do not have permission to destroy this Stargate!§r");
++                system.run(() => {
++                    try {
++                        const dim = world.getDimension(block.dimension.id);
++                        dim.getBlock(block).setPermutation(event.brokenBlockPermutation);
++                    } catch (e) {}
++                });
++                return;
++            }
++
+             console.warn(`Gate Destruction Detected: ${gate.name} at ${block.x},${block.y},${block.z}`);
+             GateManager.deleteGate(key);
+             player.sendMessage(`§cStargate '${gate.name}' destroyed.`);
+diff --git a/Stargate_BP/scripts/gate-manager.js b/Stargate_BP/scripts/gate-manager.js
+index f8e52d23..2f04a89e 100644
+--- a/Stargate_BP/scripts/gate-manager.js
++++ b/Stargate_BP/scripts/gate-manager.js
+@@ -36,12 +36,40 @@ export class GateManager {
+     // --- SIGN BASED INTERACTION ---
+     static handleSignInteraction(signBlock, player) {
+         console.warn("handleSignInteraction called");
+-        const gate = this.findGateBySign(signBlock);
++        let gate = this.findGateBySign(signBlock);
+         if (!gate) {
+             console.warn("handleSignInteraction: No gate found for this sign.");
+             return;
+         }
+ 
++        // Real-time check: If sign text was edited, update DB immediately on click
++        const signComp = signBlock.getComponent("minecraft:sign");
++        if (signComp) {
++            const currentText = signComp.getText();
++            const parsed = this.parseStargateSignText(currentText);
++            if (parsed && (parsed.name !== gate.name || parsed.network !== gate.network)) {
++                console.warn(`[Stargate] Real-time sign update: ${gate.name} -> ${parsed.name} (network: ${parsed.network})`);
++                const key = this.getGateKey(signBlock.dimension.getBlock(gate.location));
++                gate.name = parsed.name;
++                gate.network = parsed.network;
++                this.saveGateData(key, gate);
++                this.gatesCache = null;
++                this.getAllGatesMap();
++            }
++        }
++
++        // Check if gate is Private ('P')
++        if (gate.flags && gate.flags.includes('P') && !this.hasGateControlPermission(player, gate)) {
++            player.sendMessage("§cThis Stargate is private and can only be accessed by its owner!§r");
++            return;
++        }
++
++        // Always-on gates ('A', 'R', 'U') cannot be manually dialed
++        if (gate.flags && (gate.flags.includes('A') || gate.flags.includes('R') || gate.flags.includes('U'))) {
++            player.sendMessage("§eThis Stargate is always active. Walk in to teleport!§r");
++            return;
++        }
++
+         // Find existing priming for this player and gate
+         let prime = this.primedGates.find(p => p.player.id === player.id && p.source.location.x === gate.location.x && p.source.location.y === gate.location.y && p.source.location.z === gate.location.z);
+ 
+@@ -49,7 +77,12 @@ export class GateManager {
+             // First time tapping: Start Priming
+             console.warn(`Starting priming for ${gate.name}`);
+             const allGates = this.getAllGatesMap();
+-            const targets = Object.values(allGates).filter(g => g.network === gate.network && g.name !== gate.name);
++            // Filter out hidden ('H') gates from targets list
++            const targets = Object.values(allGates).filter(g => 
++                g.network === gate.network && 
++                g.name !== gate.name && 
++                (!g.flags || !g.flags.includes('H'))
++            );
+ 
+             if (targets.length === 0) {
+                 player.sendMessage(`No other gates found on network '${gate.network}'.`);
+@@ -299,13 +332,23 @@ export class GateManager {
+             let text = "";
+             const targetList = targets.filter(t => t !== name);
+ 
++            // Dynamically look up the gate flags from DB
++            const gate = this.findGateBySign({ x: loc.x, y: loc.y, z: loc.z, dimension: { id: loc.dim } });
++            const hasN = gate && gate.flags && gate.flags.toUpperCase().includes('N');
++            const flags = gate && gate.flags ? gate.flags.toUpperCase() : "";
++
++            const netDisp = hasN ? "------------" : network;
++
+             if (isActive) {
+                 // Active Portal State
+                 const dest = targets[0] || "Unknown";
+                 text = `§1-${name}-\n§c>> ACTIVE <<\n§4${dest}`;
+             } else if (selectedIndex === -1) {
+                 // Default State
+-                text = `§1-${name}-\n§8------------\n§3${network}`;
++                text = `§1-${name}-\n§8------------\n§3${netDisp}`;
++                if (flags) {
++                    text += `\n§5${flags}`;
++                }
+             } else {
+                 // Primed/Selection State
+                 text = `§1-${name}-\n`;
+@@ -588,6 +631,53 @@ export class GateManager {
+                 }
+             }
+         }
++
++        // 3. Handle Permanent / Always-On Gates ('A', 'R', 'U')
++        const checkPermanents = this.tickCounter % 5 === 0;
++        if (checkPermanents) {
++            const allGates = this.getAllGatesMap();
++            for (const key in allGates) {
++                const gate = allGates[key];
++                const flags = gate.flags ? gate.flags.toUpperCase() : "";
++                const hasA = flags.includes('A');
++                const hasR = flags.includes('R');
++                const hasU = flags.includes('U');
++
++                if (hasA || hasR || hasU) {
++                    // Open portal blocks if they aren't already
++                    if (this.tickCounter % 100 === 0) {
++                        this.setPortalBlocks(gate, true);
++                    }
++
++                    const dim = world.getDimension(gate.location.dim);
++                    if (dim) {
++                        const hasQ = flags.includes('Q');
++                        if (!hasQ && this.tickCounter % 10 === 0) {
++                            try {
++                                const randBlock = gate.portalBlocks[Math.floor(Math.random() * gate.portalBlocks.length)];
++                                dim.spawnParticle("minecraft:basic_flame_particle", { x: randBlock.x + Math.random(), y: randBlock.y + Math.random(), z: randBlock.z + Math.random() });
++                            } catch (e) {}
++                        }
++
++                        // Check players stepping into always-on portal
++                        const players = dim.getPlayers({ location: gate.location, maxDistance: 8 });
++                        for (const p of players) {
++                            const pLoc = { x: Math.floor(p.location.x), y: Math.floor(p.location.y), z: Math.floor(p.location.z) };
++                            if (gate.portalBlocks.some(pb => pb.x === pLoc.x && pb.y === pLoc.y && pb.z === pLoc.z)) {
++                                if (hasR) {
++                                    this.teleportRandomly(p, gate);
++                                } else {
++                                    const dest = this.findAlwaysOnDestination(gate);
++                                    if (dest) {
++                                        this.teleportPlayer(p, dest);
++                                    }
++                                }
++                            }
++                        }
++                    }
++                }
++            }
++        }
+     }
+ 
+     static recentTeleports = new Map(); // playerId -> timestamp
+@@ -603,6 +693,9 @@ export class GateManager {
+         this.recentTeleports.set(player.id, now);
+         // ... rest of teleport logic
+ 
++        const hasB = targetGate.flags && targetGate.flags.toUpperCase().includes('B');
++        const hasQ = targetGate.flags && targetGate.flags.toUpperCase().includes('Q');
++
+         // Use portalCenter if available, otherwise fallback to location
+         let baseLoc = targetGate.portalCenter || targetGate.location;
+         let tx = baseLoc.x + 0.5;
+@@ -611,27 +704,33 @@ export class GateManager {
+         let rotY = 0;
+ 
+         // Apply exit direction offset (usually 1.5 blocks out from center)
++        const mult = hasB ? -1.5 : 1.5;
+         if (targetGate.exitDirection) {
+-            tx += targetGate.exitDirection.x * 1.5;
++            tx += targetGate.exitDirection.x * mult;
+             ty += targetGate.exitDirection.y;
+-            tz += targetGate.exitDirection.z * 1.5;
++            tz += targetGate.exitDirection.z * mult;
+             rotY = targetGate.exitDirection.rotY || 0;
++            if (hasB) {
++                rotY = (rotY + 180) % 360; // Flip rotation for backward exit
++            }
+         } else {
+             // Legacy fallback
+             if (targetGate.axis === 'x') {
+-                tz += 2.0;
+-                rotY = 0; // Face South
++                tz += hasB ? -2.0 : 2.0;
++                rotY = hasB ? 180 : 0;
+             } else {
+-                tx += 2.0;
+-                rotY = 90; // Face West
++                tx += hasB ? -2.0 : 2.0;
++                rotY = hasB ? 270 : 90;
+             }
+         }
+ 
+         try {
+-            console.warn(`Teleporting ${player.name} to center of ${targetGate.name} at ${tx.toFixed(2)}, ${ty}, ${tz.toFixed(2)} facing ${rotY}`);
++            if (!hasQ) {
++                console.warn(`Teleporting ${player.name} to center of ${targetGate.name} at ${tx.toFixed(2)}, ${ty}, ${tz.toFixed(2)} facing ${rotY}`);
++            }
+ 
+             // Print frame positions for debugging
+-            if (targetGate.frameBlocks && targetGate.frameBlocks.length > 0) {
++            if (targetGate.frameBlocks && targetGate.frameBlocks.length > 0 && !hasQ) {
+                 console.warn(`Target gate frame blocks (${targetGate.frameBlocks.length}):`);
+                 targetGate.frameBlocks.forEach((fb, i) => {
+                     console.warn(`  [${i}] ${fb.x}, ${fb.y}, ${fb.z}`);
+@@ -639,8 +738,12 @@ export class GateManager {
+             }
+ 
+             player.teleport({ x: tx, y: ty, z: tz }, { dimension: dim, rotation: { x: 0, y: rotY } });
++            
++            if (!hasQ) {
++                player.sendMessage(`§aTeleported to Stargate '${targetGate.name}'!§r`);
++            }
+         } catch (e) {
+-            console.warn(`Teleport failed: ${e}`);
++            if (!hasQ) console.warn(`Teleport failed: ${e}`);
+         }
+     }
+ 
+@@ -737,7 +840,14 @@ export class GateManager {
+                         const signComp = block.getComponent("minecraft:sign");
+                         if (signComp) {
+                             const currentText = signComp.getText();
+-                            if (!currentText.includes(gate.name)) {
++                            const parsed = this.parseStargateSignText(currentText);
++                            if (parsed && (parsed.name !== gate.name || parsed.network !== gate.network)) {
++                                console.warn(`[Stargate] Sign update detected for gate: ${gate.name} -> ${parsed.name} (network: ${parsed.network})`);
++                                gate.name = parsed.name;
++                                gate.network = parsed.network;
++                                this.saveGateData(key, gate);
++                                this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name]);
++                            } else if (!currentText.includes(gate.name)) {
+                                 this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name]);
+                             }
+                         }
+@@ -868,6 +978,225 @@ export class GateManager {
+         }
+     }
+ 
++    static repairDatabase(player) {
++        const dim = world.getDimension("overworld");
++        if (!dim) return { success: false, message: "§cCould not access overworld dimension.§r" };
++
++        let entities = [];
++        try {
++            entities = dim.getEntities({
++                tags: ["stargate_db"]
++            });
++        } catch (e) {
++            return { success: false, message: `§cError querying entities: ${e}§r` };
++        }
++
++        let repairedDuplication = false;
++        let duplicateCount = 0;
++        let master = null;
++
++        if (entities.length > 0) {
++            master = entities[0];
++            if (entities.length > 1) {
++                repairedDuplication = true;
++                duplicateCount = entities.length - 1;
++                // Merge tags from duplicates to master
++                const masterTags = new Set(master.getTags());
++                for (let i = 1; i < entities.length; i++) {
++                    const dup = entities[i];
++                    for (const tag of dup.getTags()) {
++                        if (tag.startsWith("gate:") && !masterTags.has(tag)) {
++                            master.addTag(tag);
++                        }
++                    }
++                    try {
++                        dup.remove();
++                    } catch (e) {}
++                }
++            }
++        } else {
++            // No DB entity exists at all, getDatabaseEntity will create one
++            master = this.getDatabaseEntity();
++        }
++
++        if (!master) {
++            return { success: false, message: "§cFailed to locate or create a primary database entity.§r" };
++        }
++
++        // Now, let's scan all registered gates and prune orphaned ones in loaded chunks
++        this.gatesCache = null; // Clear cache first to reload fresh
++        const gates = this.getAllGatesMap();
++        let prunedCount = 0;
++        
++        for (const key in gates) {
++            const gate = gates[key];
++            if (gate.signLocation) {
++                try {
++                    const gateDim = world.getDimension(gate.location.dim);
++                    if (gateDim) {
++                        const signBlock = gateDim.getBlock(gate.signLocation);
++                        // If block is loaded (not undefined) and is not a sign, prune it
++                        if (signBlock && !signBlock.typeId.includes("sign")) {
++                            this.deleteGate(key);
++                            prunedCount++;
++                        }
++                    }
++                } catch (e) {
++                    // Ignore transient errors or unloaded chunk issues
++                }
++            }
++        }
++
++        // Force reload cache
++        this.gatesCache = null;
++        this.getAllGatesMap();
++
++        let msg = "§aDatabase repair complete!§r\n";
++        if (repairedDuplication) msg += `§e- Merged & removed ${duplicateCount} duplicate database entities.§r\n`;
++        if (prunedCount > 0) msg += `§e- Pruned ${prunedCount} orphaned/broken gates.§r\n`;
++        else msg += `§a- No orphaned gates detected in loaded chunks.§r\n`;
++        
++        return { success: true, message: msg };
++    }
++
++    static resetDatabase() {
++        const dim = world.getDimension("overworld");
++        if (!dim) return false;
++
++        let entities = [];
++        try {
++            entities = dim.getEntities({
++                tags: ["stargate_db"]
++            });
++        } catch (e) {}
++
++        for (const ent of entities) {
++            try {
++                ent.remove();
++            } catch (e) {}
++        }
++
++        this.gatesCache = null;
++        // Recreate fresh
++        this.getDatabaseEntity();
++        return true;
++    }
++
++    static parseStargateSignText(signText) {
++        if (!signText) return null;
++        
++        const lines = signText.split('\n').map(l => l.trim());
++        if (lines.length < 3) return null;
++
++        const cleanLine = (str) => str.replace(/§[0-9a-fk-or]/gi, '').trim();
++
++        const line1 = cleanLine(lines[0]);
++        const line3 = cleanLine(lines[2]);
++
++        if (line1.startsWith('-') && line1.endsWith('-') && line1.length > 2) {
++            const name = line1.substring(1, line1.length - 1).trim();
++            const network = line3.trim();
++            if (name && network && network !== "------------") {
++                return { name, network };
++            }
++        }
++        return null;
++    }
++
++    static recreateGateFromSignText(match, signBlock, name, network, player) {
++        const { gateDef, axis, allAnchors } = match;
++        const dimId = signBlock.dimension.id;
++        
++        const portalBlocks = [];
++        const frameBlocks = [];
++        const layout = gateDef.layout;
++        const anchor = match.matchedAnchor;
++        
++        for (let r = 0; r < layout.length; r++) {
++            for (let c = 0; c < layout[r].length; c++) {
++                const char = layout[r][c];
++                const dy = anchor.r - r;
++                const dLat = c - anchor.c;
++                
++                let tx = match.anchorBlock.x;
++                let ty = match.anchorBlock.y + dy;
++                let tz = match.anchorBlock.z;
++                
++                if (axis === 'x') tx += dLat;
++                else tz += dLat;
++                
++                const bLoc = { x: tx, y: ty, z: tz };
++                if (char === '.' || char === '*') portalBlocks.push(bLoc);
++                else if (char === 'X') frameBlocks.push(bLoc);
++            }
++        }
++
++        let cx = 0, cy = 0, cz = 0;
++        portalBlocks.forEach(pb => { cx += pb.x; cy += pb.y; cz += pb.z; });
++        const portalCenter = portalBlocks.length > 0 ? { x: cx / portalBlocks.length, y: cy / portalBlocks.length, z: cz / portalBlocks.length } : match.anchorBlock;
++
++        const signLoc = { x: signBlock.x, y: signBlock.y, z: signBlock.z, dim: dimId };
++        
++        let buttonLoc = null;
++        const gateDim = world.getDimension(dimId);
++        for (const anc of allAnchors) {
++            if (anc.x === signBlock.x && anc.y === signBlock.y && anc.z === signBlock.z) continue;
++            try {
++                const b = gateDim.getBlock(anc);
++                if (b && b.typeId.includes("button")) {
++                    buttonLoc = { x: anc.x, y: anc.y, z: anc.z, dim: dimId };
++                    break;
++                }
++            } catch (e) {}
++        }
++
++        let exitDirection = { x: 0, y: 0, z: 0, rotY: 0 };
++        if (axis === 'x') {
++            exitDirection = { x: 0, y: 0, z: 1.5, rotY: 0 };
++        } else {
++            exitDirection = { x: 1.5, y: 0, z: 0, rotY: 90 };
++        }
++
++        const signComp = signBlock.getComponent("minecraft:sign");
++        let flags = "";
++        if (signComp) {
++            const parsedText = this.parseStargateSignText(signComp.getText());
++            if (parsedText) flags = parsedText.flags || "";
++        }
++
++        const key = this.getGateKey(match.anchorBlock);
++        const data = {
++            id: gateDef.id,
++            name: name,
++            network: network,
++            creator: player.name,
++            creatorId: player.id,
++            flags: flags,
++            location: { x: match.anchorBlock.x, y: match.anchorBlock.y, z: match.anchorBlock.z, dim: dimId },
++            axis: axis,
++            signLocation: signLoc,
++            buttonLocation: buttonLoc,
++            portalBlocks: portalBlocks,
++            frameBlocks: frameBlocks,
++            portalCenter: portalCenter,
++            exitDirection: exitDirection,
++            portalOpenMat: gateDef.config?.['portal-open'] || "minecraft:basic_flame_particle",
++            portalClosedMat: gateDef.config?.['portal-closed'] || "minecraft:air"
++        };
++
++        this.saveGateData(key, data);
++        
++        this.gatesCache = null;
++        this.getAllGatesMap();
++
++        player.sendMessage(`§aStargate §e${name}§a on network §e${network}§a has been successfully established and registered!§r`);
++        
++        this.setSignText(signLoc, name, network, [name]);
++        if (buttonLoc) {
++            this.healButton(data, gateDim);
++        }
++    }
++
+     static getAllGates() {
+         return Object.keys(this.getAllGatesMap());
+     }
+@@ -1078,6 +1407,8 @@ export class GateManager {
+             id: gateDef.id,
+             name,
+             network,
++            creator: player.name,
++            creatorId: player.id,
+             axis,
+             location: { x: anchorLoc.x, y: anchorLoc.y, z: anchorLoc.z, dim: anchorLoc.dim },
+             portalBlocks,
+@@ -1335,4 +1666,49 @@ export class GateManager {
+         // Normalize to Levels (capped at 30, roughly matches enchantment logic)
+         return Math.min(Math.ceil(totalCost / 5), 30);
+     }
++
++    static hasGateBuilderPermission(player) {
++        return true; // Any and all players can construct and establish stargates!
++    }
++
++    static hasGateControlPermission(player, gate) {
++        if (!player) return false;
++        if (player.getGameMode() === "creative" || player.hasTag("stargate_admin")) return true;
++        if (gate.creatorId && gate.creatorId === player.id) return true;
++        if (gate.creator && gate.creator === player.name) return true;
++        if (!gate.creator && this.hasGateBuilderPermission(player)) return true;
++        return false;
++    }
++
++    static findAlwaysOnDestination(gate) {
++        const allGates = this.getAllGatesMap();
++        const targets = Object.values(allGates).filter(g => g.network === gate.network && g.name !== gate.name);
++        if (targets.length > 0) {
++            return targets[0]; // Target the other gate on the network
++        }
++        return null;
++    }
++
++    static teleportRandomly(player, gate) {
++        const now = Date.now();
++        const lastTeleport = this.recentTeleports.get(player.id) || 0;
++        if (now - lastTeleport < 1000) return; // 1 second cooldown
++        this.recentTeleports.set(player.id, now);
++
++        const dim = world.getDimension(gate.location.dim);
++        if (!dim) return;
++
++        const rx = (Math.random() - 0.5) * 10000;
++        const rz = (Math.random() - 0.5) * 10000;
++        const ry = 80;
++
++        const hasQ = gate.flags && gate.flags.toUpperCase().includes('Q');
++
++        try {
++            if (!hasQ) {
++                player.sendMessage("§aEntering unstable gate... Teleporting to random coordinates!§r");
++            }
++            player.teleport({ x: rx, y: ry, z: rz }, { dimension: dim });
++        } catch (e) {}
++    }
+ }
+diff --git a/Stargate_BP/scripts/ui-manager.js b/Stargate_BP/scripts/ui-manager.js
+index 76b3712e..05bfdf36 100644
+--- a/Stargate_BP/scripts/ui-manager.js
++++ b/Stargate_BP/scripts/ui-manager.js
+@@ -17,19 +17,123 @@ export class UiManager {
+             return a.gate.id.localeCompare(b.gate.id);
+         });
+ 
++        const isAdmin = player.getGameMode() === "creative" || player.hasTag("stargate_admin");
++
+         for (const item of sortedGatesList) {
+             form.button(`${item.gate.id}`);
+         }
+ 
++        form.button("§bSign & Flag Guide§r");
++
++        if (isAdmin) {
++            form.button("§dAdmin Tools§r");
++        }
++
+         const response = await form.show(player);
+         if (!response || response.canceled) return;
+ 
++        if (response.selection === sortedGatesList.length) {
++            this.showSignGuide(player);
++            return;
++        }
++
++        if (isAdmin && response.selection === sortedGatesList.length + 1) {
++            this.showAdminTools(player);
++            return;
++        }
++
+         const selectedGate = sortedGatesList[response.selection].gate;
+         if (selectedGate) {
+             this.showGateDetails(player, selectedGate);
+         }
+     }
+ 
++    static async showSignGuide(player) {
++        const text = "To customize stargates and configure locks, write on the Stargate sign before activating it (or sneak-click to edit an existing sign).\n\n" +
++            "§lSign Format:§r\n" +
++            " §7Line 1:§r §1-GateName-§r\n" +
++            " §7Line 2:§r §8(Leave Blank)§r\n" +
++            " §7Line 3:§r §3NetworkName§r\n" +
++            " §7Line 4:§r §5Flags§r\n\n" +
++            "§lAvailable Flags (Line 4):§r\n" +
++            " §e'A'§r - §bAlways-On Gate§r: Portal stays permanently open. Walk through to go to destination.\n" +
++            " §e'R'§r - §bRandom Gate§r: Permanently open. Teleports you to a random coordinate location.\n" +
++            " §e'H'§r - §bHidden Gate§r: Hidden from dialing/cycling target lists on other gates.\n" +
++            " §e'P'§r - §bPrivate Gate§r: Locked to its creator. Only the owner can dial or edit this sign.\n" +
++            " §e'B'§r - §bBackwards Gate§r: Rotates momentum so you exit out of the back face of the frame.\n" +
++            " §e'Q'§r - §bSilent Gate§r: Disables chat alerts and portal sounds during teleport.\n" +
++            " §e'N'§r - §bHide Network§r: Replaces the network name on Line 3 with boundaries to keep it secret.";
++
++        const form = new ActionFormData()
++            .title("Sign & Flag Guide")
++            .body(text)
++            .button("Back")
++            .button("Close");
++
++        const response = await form.show(player);
++        if (!response || response.canceled) return;
++
++        if (response.selection === 0) {
++            this.showGateSelection(player);
++        }
++    }
++
++    static async showAdminTools(player) {
++        const form = new ActionFormData()
++            .title("Stargate Admin Tools")
++            .body("Utility features for restoring & repairing gate networks.")
++            .button("§aRepair Database & Prune Orphans§r\n(Despawns duplicates, cleans old sign tags)")
++            .button("§eForce Run Maintenance Now§r\n(Runs integrity checks on all gates)")
++            .button("§cFull Database WIPE§r\n(Wipes all saved gates - CAUTION)")
++            .button("Back");
++
++        const response = await form.show(player);
++        if (!response || response.canceled) return;
++
++        switch (response.selection) {
++            case 0: {
++                player.sendMessage("§eRunning database repair...");
++                const result = GateManager.repairDatabase(player);
++                player.sendMessage(result.message);
++                break;
++            }
++            case 1: {
++                player.sendMessage("§eForcing gate maintenance check...");
++                try {
++                    GateManager.runMaintenance();
++                    player.sendMessage("§aMaintenance check complete.");
++                } catch (e) {
++                    player.sendMessage(`§cError during maintenance: ${e}`);
++                }
++                break;
++            }
++            case 2: {
++                const confirmForm = new ActionFormData()
++                    .title("§4Confirm Database WIPE§r")
++                    .body("§cWARNING: This will completely wipe all registered stargates and reset the database! This action is irreversible.§r")
++                    .button("§cYES, WIPE EVERYTHING§r")
++                    .button("NO, Cancel");
++                
++                const confirmResponse = await confirmForm.show(player);
++                if (confirmResponse && !confirmResponse.canceled && confirmResponse.selection === 0) {
++                    player.sendMessage("§4Wiping database...");
++                    const success = GateManager.resetDatabase();
++                    if (success) {
++                        player.sendMessage("§aDatabase wiped successfully.");
++                    } else {
++                        player.sendMessage("§cFailed to wipe database.");
++                    }
++                } else {
++                    player.sendMessage("§eWipe cancelled.§r");
++                }
++                break;
++            }
++            case 3:
++                this.showGateSelection(player);
++                break;
++        }
++    }
++
+     static async showGateDetails(player, gateDef) {
+         // Construct visual representation of the layout
+         let layoutText = "Legend:\n";
+diff --git a/Stargate_RP/manifest.json b/Stargate_RP/manifest.json
+index f99f9d2e..69f2eb11 100644
+--- a/Stargate_RP/manifest.json
++++ b/Stargate_RP/manifest.json
+@@ -2,17 +2,17 @@
+     "format_version": 2,
+     "header": {
+         "description": "Stargate Bedrock Resource Pack",
+-        "name": "Stargate RP (1.1.18)",
++        "name": "Stargate RP (1.2.1)",
+         "uuid": "685c4909-66c3-4d45-930c-720498309602",
+         "version": [
+             1,
+-            1,
+-            18
++            2,
++            1
+         ],
+         "min_engine_version": [
+             1,
+-            21,
+-            131
++            26,
++            20
+         ]
+     },
+     "modules": [
+@@ -22,8 +22,8 @@
+             "uuid": "f4560706-5389-497d-b542-f048d0870243",
+             "version": [
+                 1,
+-                1,
+-                18
++                2,
++                1
+             ]
+         }
+     ],
+@@ -32,8 +32,8 @@
+             "uuid": "43916969-950c-4573-b328-765089309601",
+             "version": [
+                 1,
+-                1,
+-                18
++                2,
++                1
+             ]
+         }
+     ]
+diff --git a/TODO.txt b/TODO.txt
+new file mode 100644
+index 00000000..f3cc4529
+--- /dev/null
++++ b/TODO.txt
+@@ -0,0 +1,2 @@
++when a Stargate activats both ends of the portal should show active and the sign the active state just as the users sign showed after the button was pressed if the user turns around they should be able to return without diling again if the timeout has not expired
++after teleport the sign on both ends of the portal that was just used needs to be set to the default display for their respective signs
+\ No newline at end of file
