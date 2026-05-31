@@ -24,8 +24,22 @@ A Minecraft Bedrock Edition Addon that ports the classic Stargate plugin experie
     - `X`: Frame Material
     - `-`: Frame Material where the Button/Sign goes
     - `.`: Empty space (will become portal)
-4. **Activate**: Place a button on the block indicated by `-` and press it.
-5. **Teleport**: (Coming Soon) Walk through to be transported to another gate.
+4. **Establish the Gate**: Place a sign on the block indicated by `-` and a button on the other `-` block. You can write your gate settings directly on the sign before activating:
+    - **Line 1**: `-GateName-` (e.g., `-Alpha-`)
+    - **Line 3**: `NetworkName` (e.g., `Public`)
+    - **Line 4**: `Flags` (e.g., `AP` for Always-on + Private)
+5. **Activate**: Right-click the sign. If formatted correctly, it will instantly establish and activate without any UI menus! (If the sign is blank, it opens a guided setup UI instead).
+6. **Use & Rename**: Right-click to cycle destinations and press the button to teleport. **Sneak + Right-click** the sign to open the vanilla sign editor, allowing you to dynamically rename or change networks in real-time!
+
+### Sign Flags (Line 4):
+- **`A` (Always-On)**: Permanently active portal blocks. Walk through to go to destination instantly.
+- **`R` (Random Gate)**: Permanently active. Teleports entering players to a completely random coordinate location in the world.
+- **`H` (Hidden)**: Hides the gate from target dialing/cycling lists on other gates.
+- **`P` (Private)**: Locks the gate to its creator. Only the owner can dial or edit this sign.
+- **`B` (Backwards Exit)**: Reverses exit momentum, spawning you out the back face of the frame.
+- **`Q` (Silent)**: Disables chat logs and portal sound effects during teleports.
+- **`N` (Hide Network)**: Replaces the network name on Line 3 with boundaries to hide it from others.
+- **`U` (Bungee server link)**: Permanent linkage simulation.
 
 ## Development
 

@@ -36,9 +36,37 @@ export class GateManager {
     // --- SIGN BASED INTERACTION ---
     static handleSignInteraction(signBlock, player) {
         console.warn("handleSignInteraction called");
-        const gate = this.findGateBySign(signBlock);
+        let gate = this.findGateBySign(signBlock);
         if (!gate) {
             console.warn("handleSignInteraction: No gate found for this sign.");
+            return;
+        }
+
+        // Real-time check: If sign text was edited, update DB immediately on click
+        const signComp = signBlock.getComponent("minecraft:sign");
+        if (signComp) {
+            const currentText = signComp.getText();
+            const parsed = this.parseStargateSignText(currentText);
+            if (parsed && (parsed.name !== gate.name || parsed.network !== gate.network)) {
+                console.warn(`[Stargate] Real-time sign update: ${gate.name} -> ${parsed.name} (network: ${parsed.network})`);
+                const key = this.getGateKey(signBlock.dimension.getBlock(gate.location));
+                gate.name = parsed.name;
+                gate.network = parsed.network;
+                this.saveGateData(key, gate);
+                this.gatesCache = null;
+                this.getAllGatesMap();
+            }
+        }
+
+        // Check if gate is Private ('P')
+        if (gate.flags && gate.flags.includes('P') && !this.hasGateControlPermission(player, gate)) {
+            player.sendMessage("§cThis Stargate is private and can only be accessed by its owner!§r");
+            return;
+        }
+
+        // Always-on gates ('A', 'R', 'U') cannot be manually dialed
+        if (gate.flags && (gate.flags.includes('A') || gate.flags.includes('R') || gate.flags.includes('U'))) {
+            player.sendMessage("§eThis Stargate is always active. Walk in to teleport!§r");
             return;
         }
 
@@ -49,7 +77,12 @@ export class GateManager {
             // First time tapping: Start Priming
             console.warn(`Starting priming for ${gate.name}`);
             const allGates = this.getAllGatesMap();
-            const targets = Object.values(allGates).filter(g => g.network === gate.network && g.name !== gate.name);
+            // Filter out hidden ('H') gates from targets list
+            const targets = Object.values(allGates).filter(g => 
+                g.network === gate.network && 
+                g.name !== gate.name && 
+                (!g.flags || !g.flags.includes('H'))
+            );
 
             if (targets.length === 0) {
                 player.sendMessage(`No other gates found on network '${gate.network}'.`);
@@ -299,13 +332,23 @@ export class GateManager {
             let text = "";
             const targetList = targets.filter(t => t !== name);
 
+            // Dynamically look up the gate flags from DB
+            const gate = this.findGateBySign({ x: loc.x, y: loc.y, z: loc.z, dimension: { id: loc.dim } });
+            const hasN = gate && gate.flags && gate.flags.toUpperCase().includes('N');
+            const flags = gate && gate.flags ? gate.flags.toUpperCase() : "";
+
+            const netDisp = hasN ? "------------" : network;
+
             if (isActive) {
                 // Active Portal State
                 const dest = targets[0] || "Unknown";
                 text = `§1-${name}-\n§c>> ACTIVE <<\n§4${dest}`;
             } else if (selectedIndex === -1) {
                 // Default State
-                text = `§1-${name}-\n§8------------\n§3${network}`;
+                text = `§1-${name}-\n§8------------\n§3${netDisp}`;
+                if (flags) {
+                    text += `\n§5${flags}`;
+                }
             } else {
                 // Primed/Selection State
                 text = `§1-${name}-\n`;
@@ -588,6 +631,53 @@ export class GateManager {
                 }
             }
         }
+
+        // 3. Handle Permanent / Always-On Gates ('A', 'R', 'U')
+        const checkPermanents = this.tickCounter % 5 === 0;
+        if (checkPermanents) {
+            const allGates = this.getAllGatesMap();
+            for (const key in allGates) {
+                const gate = allGates[key];
+                const flags = gate.flags ? gate.flags.toUpperCase() : "";
+                const hasA = flags.includes('A');
+                const hasR = flags.includes('R');
+                const hasU = flags.includes('U');
+
+                if (hasA || hasR || hasU) {
+                    // Open portal blocks if they aren't already
+                    if (this.tickCounter % 100 === 0) {
+                        this.setPortalBlocks(gate, true);
+                    }
+
+                    const dim = world.getDimension(gate.location.dim);
+                    if (dim) {
+                        const hasQ = flags.includes('Q');
+                        if (!hasQ && this.tickCounter % 10 === 0) {
+                            try {
+                                const randBlock = gate.portalBlocks[Math.floor(Math.random() * gate.portalBlocks.length)];
+                                dim.spawnParticle("minecraft:basic_flame_particle", { x: randBlock.x + Math.random(), y: randBlock.y + Math.random(), z: randBlock.z + Math.random() });
+                            } catch (e) {}
+                        }
+
+                        // Check players stepping into always-on portal
+                        const players = dim.getPlayers({ location: gate.location, maxDistance: 8 });
+                        for (const p of players) {
+                            const pLoc = { x: Math.floor(p.location.x), y: Math.floor(p.location.y), z: Math.floor(p.location.z) };
+                            if (gate.portalBlocks.some(pb => pb.x === pLoc.x && pb.y === pLoc.y && pb.z === pLoc.z)) {
+                                if (hasR) {
+                                    this.teleportRandomly(p, gate);
+                                } else {
+                                    const dest = this.findAlwaysOnDestination(gate);
+                                    if (dest) {
+                                        this.teleportPlayer(p, dest);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     static recentTeleports = new Map(); // playerId -> timestamp
@@ -603,6 +693,9 @@ export class GateManager {
         this.recentTeleports.set(player.id, now);
         // ... rest of teleport logic
 
+        const hasB = targetGate.flags && targetGate.flags.toUpperCase().includes('B');
+        const hasQ = targetGate.flags && targetGate.flags.toUpperCase().includes('Q');
+
         // Use portalCenter if available, otherwise fallback to location
         let baseLoc = targetGate.portalCenter || targetGate.location;
         let tx = baseLoc.x + 0.5;
@@ -611,27 +704,33 @@ export class GateManager {
         let rotY = 0;
 
         // Apply exit direction offset (usually 1.5 blocks out from center)
+        const mult = hasB ? -1.5 : 1.5;
         if (targetGate.exitDirection) {
-            tx += targetGate.exitDirection.x * 1.5;
+            tx += targetGate.exitDirection.x * mult;
             ty += targetGate.exitDirection.y;
-            tz += targetGate.exitDirection.z * 1.5;
+            tz += targetGate.exitDirection.z * mult;
             rotY = targetGate.exitDirection.rotY || 0;
+            if (hasB) {
+                rotY = (rotY + 180) % 360; // Flip rotation for backward exit
+            }
         } else {
             // Legacy fallback
             if (targetGate.axis === 'x') {
-                tz += 2.0;
-                rotY = 0; // Face South
+                tz += hasB ? -2.0 : 2.0;
+                rotY = hasB ? 180 : 0;
             } else {
-                tx += 2.0;
-                rotY = 90; // Face West
+                tx += hasB ? -2.0 : 2.0;
+                rotY = hasB ? 270 : 90;
             }
         }
 
         try {
-            console.warn(`Teleporting ${player.name} to center of ${targetGate.name} at ${tx.toFixed(2)}, ${ty}, ${tz.toFixed(2)} facing ${rotY}`);
+            if (!hasQ) {
+                console.warn(`Teleporting ${player.name} to center of ${targetGate.name} at ${tx.toFixed(2)}, ${ty}, ${tz.toFixed(2)} facing ${rotY}`);
+            }
 
             // Print frame positions for debugging
-            if (targetGate.frameBlocks && targetGate.frameBlocks.length > 0) {
+            if (targetGate.frameBlocks && targetGate.frameBlocks.length > 0 && !hasQ) {
                 console.warn(`Target gate frame blocks (${targetGate.frameBlocks.length}):`);
                 targetGate.frameBlocks.forEach((fb, i) => {
                     console.warn(`  [${i}] ${fb.x}, ${fb.y}, ${fb.z}`);
@@ -639,8 +738,12 @@ export class GateManager {
             }
 
             player.teleport({ x: tx, y: ty, z: tz }, { dimension: dim, rotation: { x: 0, y: rotY } });
+            
+            if (!hasQ) {
+                player.sendMessage(`§aTeleported to Stargate '${targetGate.name}'!§r`);
+            }
         } catch (e) {
-            console.warn(`Teleport failed: ${e}`);
+            if (!hasQ) console.warn(`Teleport failed: ${e}`);
         }
     }
 
@@ -737,7 +840,14 @@ export class GateManager {
                         const signComp = block.getComponent("minecraft:sign");
                         if (signComp) {
                             const currentText = signComp.getText();
-                            if (!currentText.includes(gate.name)) {
+                            const parsed = this.parseStargateSignText(currentText);
+                            if (parsed && (parsed.name !== gate.name || parsed.network !== gate.network)) {
+                                console.warn(`[Stargate] Sign update detected for gate: ${gate.name} -> ${parsed.name} (network: ${parsed.network})`);
+                                gate.name = parsed.name;
+                                gate.network = parsed.network;
+                                this.saveGateData(key, gate);
+                                this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name]);
+                            } else if (!currentText.includes(gate.name)) {
                                 this.setSignText(gate.signLocation, gate.name, gate.network, [gate.name]);
                             }
                         }
@@ -865,6 +975,225 @@ export class GateManager {
         } catch (e) {
             console.warn("Error creating DB entity: " + e);
             return null;
+        }
+    }
+
+    static repairDatabase(player) {
+        const dim = world.getDimension("overworld");
+        if (!dim) return { success: false, message: "§cCould not access overworld dimension.§r" };
+
+        let entities = [];
+        try {
+            entities = dim.getEntities({
+                tags: ["stargate_db"]
+            });
+        } catch (e) {
+            return { success: false, message: `§cError querying entities: ${e}§r` };
+        }
+
+        let repairedDuplication = false;
+        let duplicateCount = 0;
+        let master = null;
+
+        if (entities.length > 0) {
+            master = entities[0];
+            if (entities.length > 1) {
+                repairedDuplication = true;
+                duplicateCount = entities.length - 1;
+                // Merge tags from duplicates to master
+                const masterTags = new Set(master.getTags());
+                for (let i = 1; i < entities.length; i++) {
+                    const dup = entities[i];
+                    for (const tag of dup.getTags()) {
+                        if (tag.startsWith("gate:") && !masterTags.has(tag)) {
+                            master.addTag(tag);
+                        }
+                    }
+                    try {
+                        dup.remove();
+                    } catch (e) {}
+                }
+            }
+        } else {
+            // No DB entity exists at all, getDatabaseEntity will create one
+            master = this.getDatabaseEntity();
+        }
+
+        if (!master) {
+            return { success: false, message: "§cFailed to locate or create a primary database entity.§r" };
+        }
+
+        // Now, let's scan all registered gates and prune orphaned ones in loaded chunks
+        this.gatesCache = null; // Clear cache first to reload fresh
+        const gates = this.getAllGatesMap();
+        let prunedCount = 0;
+        
+        for (const key in gates) {
+            const gate = gates[key];
+            if (gate.signLocation) {
+                try {
+                    const gateDim = world.getDimension(gate.location.dim);
+                    if (gateDim) {
+                        const signBlock = gateDim.getBlock(gate.signLocation);
+                        // If block is loaded (not undefined) and is not a sign, prune it
+                        if (signBlock && !signBlock.typeId.includes("sign")) {
+                            this.deleteGate(key);
+                            prunedCount++;
+                        }
+                    }
+                } catch (e) {
+                    // Ignore transient errors or unloaded chunk issues
+                }
+            }
+        }
+
+        // Force reload cache
+        this.gatesCache = null;
+        this.getAllGatesMap();
+
+        let msg = "§aDatabase repair complete!§r\n";
+        if (repairedDuplication) msg += `§e- Merged & removed ${duplicateCount} duplicate database entities.§r\n`;
+        if (prunedCount > 0) msg += `§e- Pruned ${prunedCount} orphaned/broken gates.§r\n`;
+        else msg += `§a- No orphaned gates detected in loaded chunks.§r\n`;
+        
+        return { success: true, message: msg };
+    }
+
+    static resetDatabase() {
+        const dim = world.getDimension("overworld");
+        if (!dim) return false;
+
+        let entities = [];
+        try {
+            entities = dim.getEntities({
+                tags: ["stargate_db"]
+            });
+        } catch (e) {}
+
+        for (const ent of entities) {
+            try {
+                ent.remove();
+            } catch (e) {}
+        }
+
+        this.gatesCache = null;
+        // Recreate fresh
+        this.getDatabaseEntity();
+        return true;
+    }
+
+    static parseStargateSignText(signText) {
+        if (!signText) return null;
+        
+        const lines = signText.split('\n').map(l => l.trim());
+        if (lines.length < 3) return null;
+
+        const cleanLine = (str) => str.replace(/§[0-9a-fk-or]/gi, '').trim();
+
+        const line1 = cleanLine(lines[0]);
+        const line3 = cleanLine(lines[2]);
+
+        if (line1.startsWith('-') && line1.endsWith('-') && line1.length > 2) {
+            const name = line1.substring(1, line1.length - 1).trim();
+            const network = line3.trim();
+            if (name && network && network !== "------------") {
+                return { name, network };
+            }
+        }
+        return null;
+    }
+
+    static recreateGateFromSignText(match, signBlock, name, network, player) {
+        const { gateDef, axis, allAnchors } = match;
+        const dimId = signBlock.dimension.id;
+        
+        const portalBlocks = [];
+        const frameBlocks = [];
+        const layout = gateDef.layout;
+        const anchor = match.matchedAnchor;
+        
+        for (let r = 0; r < layout.length; r++) {
+            for (let c = 0; c < layout[r].length; c++) {
+                const char = layout[r][c];
+                const dy = anchor.r - r;
+                const dLat = c - anchor.c;
+                
+                let tx = match.anchorBlock.x;
+                let ty = match.anchorBlock.y + dy;
+                let tz = match.anchorBlock.z;
+                
+                if (axis === 'x') tx += dLat;
+                else tz += dLat;
+                
+                const bLoc = { x: tx, y: ty, z: tz };
+                if (char === '.' || char === '*') portalBlocks.push(bLoc);
+                else if (char === 'X') frameBlocks.push(bLoc);
+            }
+        }
+
+        let cx = 0, cy = 0, cz = 0;
+        portalBlocks.forEach(pb => { cx += pb.x; cy += pb.y; cz += pb.z; });
+        const portalCenter = portalBlocks.length > 0 ? { x: cx / portalBlocks.length, y: cy / portalBlocks.length, z: cz / portalBlocks.length } : match.anchorBlock;
+
+        const signLoc = { x: signBlock.x, y: signBlock.y, z: signBlock.z, dim: dimId };
+        
+        let buttonLoc = null;
+        const gateDim = world.getDimension(dimId);
+        for (const anc of allAnchors) {
+            if (anc.x === signBlock.x && anc.y === signBlock.y && anc.z === signBlock.z) continue;
+            try {
+                const b = gateDim.getBlock(anc);
+                if (b && b.typeId.includes("button")) {
+                    buttonLoc = { x: anc.x, y: anc.y, z: anc.z, dim: dimId };
+                    break;
+                }
+            } catch (e) {}
+        }
+
+        let exitDirection = { x: 0, y: 0, z: 0, rotY: 0 };
+        if (axis === 'x') {
+            exitDirection = { x: 0, y: 0, z: 1.5, rotY: 0 };
+        } else {
+            exitDirection = { x: 1.5, y: 0, z: 0, rotY: 90 };
+        }
+
+        const signComp = signBlock.getComponent("minecraft:sign");
+        let flags = "";
+        if (signComp) {
+            const parsedText = this.parseStargateSignText(signComp.getText());
+            if (parsedText) flags = parsedText.flags || "";
+        }
+
+        const key = this.getGateKey(match.anchorBlock);
+        const data = {
+            id: gateDef.id,
+            name: name,
+            network: network,
+            creator: player.name,
+            creatorId: player.id,
+            flags: flags,
+            location: { x: match.anchorBlock.x, y: match.anchorBlock.y, z: match.anchorBlock.z, dim: dimId },
+            axis: axis,
+            signLocation: signLoc,
+            buttonLocation: buttonLoc,
+            portalBlocks: portalBlocks,
+            frameBlocks: frameBlocks,
+            portalCenter: portalCenter,
+            exitDirection: exitDirection,
+            portalOpenMat: gateDef.config?.['portal-open'] || "minecraft:basic_flame_particle",
+            portalClosedMat: gateDef.config?.['portal-closed'] || "minecraft:air"
+        };
+
+        this.saveGateData(key, data);
+        
+        this.gatesCache = null;
+        this.getAllGatesMap();
+
+        player.sendMessage(`§aStargate §e${name}§a on network §e${network}§a has been successfully established and registered!§r`);
+        
+        this.setSignText(signLoc, name, network, [name]);
+        if (buttonLoc) {
+            this.healButton(data, gateDim);
         }
     }
 
@@ -1078,6 +1407,8 @@ export class GateManager {
             id: gateDef.id,
             name,
             network,
+            creator: player.name,
+            creatorId: player.id,
             axis,
             location: { x: anchorLoc.x, y: anchorLoc.y, z: anchorLoc.z, dim: anchorLoc.dim },
             portalBlocks,
@@ -1334,5 +1665,50 @@ export class GateManager {
         }
         // Normalize to Levels (capped at 30, roughly matches enchantment logic)
         return Math.min(Math.ceil(totalCost / 5), 30);
+    }
+
+    static hasGateBuilderPermission(player) {
+        return true; // Any and all players can construct and establish stargates!
+    }
+
+    static hasGateControlPermission(player, gate) {
+        if (!player) return false;
+        if (player.getGameMode() === "creative" || player.hasTag("stargate_admin")) return true;
+        if (gate.creatorId && gate.creatorId === player.id) return true;
+        if (gate.creator && gate.creator === player.name) return true;
+        if (!gate.creator && this.hasGateBuilderPermission(player)) return true;
+        return false;
+    }
+
+    static findAlwaysOnDestination(gate) {
+        const allGates = this.getAllGatesMap();
+        const targets = Object.values(allGates).filter(g => g.network === gate.network && g.name !== gate.name);
+        if (targets.length > 0) {
+            return targets[0]; // Target the other gate on the network
+        }
+        return null;
+    }
+
+    static teleportRandomly(player, gate) {
+        const now = Date.now();
+        const lastTeleport = this.recentTeleports.get(player.id) || 0;
+        if (now - lastTeleport < 1000) return; // 1 second cooldown
+        this.recentTeleports.set(player.id, now);
+
+        const dim = world.getDimension(gate.location.dim);
+        if (!dim) return;
+
+        const rx = (Math.random() - 0.5) * 10000;
+        const rz = (Math.random() - 0.5) * 10000;
+        const ry = 80;
+
+        const hasQ = gate.flags && gate.flags.toUpperCase().includes('Q');
+
+        try {
+            if (!hasQ) {
+                player.sendMessage("§aEntering unstable gate... Teleporting to random coordinates!§r");
+            }
+            player.teleport({ x: rx, y: ry, z: rz }, { dimension: dim });
+        } catch (e) {}
     }
 }

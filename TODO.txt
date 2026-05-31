@@ -1,0 +1,2 @@
+when a Stargate activats both ends of the portal should show active and the sign the active state just as the users sign showed after the button was pressed if the user turns around they should be able to return without diling again if the timeout has not expired
+after teleport the sign on both ends of the portal that was just used needs to be set to the default display for their respective signs

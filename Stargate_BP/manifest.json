@@ -2,17 +2,17 @@
   "format_version": 2,
   "header": {
     "description": "Stargate Bedrock Behavior Pack",
-    "name": "Stargate BP (1.1.18)",
+    "name": "Stargate BP (1.2.0)",
     "uuid": "43916969-950c-4573-b328-765089309601",
     "version": [
       1,
-      1,
-      18
+      2,
+      0
     ],
     "min_engine_version": [
       1,
-      21,
-      131
+      26,
+      20
     ]
   },
   "modules": [
@@ -22,8 +22,8 @@
       "uuid": "2059345c-204b-4654-b4a1-098867540232",
       "version": [
         1,
-        1,
-        18
+        2,
+        0
       ],
       "entry": "scripts/main.js",
       "language": "javascript"

@@ -13,6 +13,16 @@ export function setupBlockInteractions() {
             // 1. Check if it's already a registered gate
             const isGate = GateManager.findGateBySign(block);
             if (isGate) {
+                // If player is sneaking, allow vanilla sign editing ONLY if they have control permission
+                if (player.isSneaking) {
+                    if (GateManager.hasGateControlPermission(player, isGate)) {
+                        return;
+                    } else {
+                        event.cancel = true;
+                        player.sendMessage("§cYou do not have permission to edit this Stargate's sign!§r");
+                        return;
+                    }
+                }
                 // Cancel vanilla event and handle interaction
                 event.cancel = true;
                 system.run(() => {
@@ -24,9 +34,26 @@ export function setupBlockInteractions() {
             // 2. Not a gate? Check if it MATHER a pattern
             const match = GateManager.getPotentialGateMatch(block);
             if (match) {
-                // Cancel vanilla event and show setup UI
+                // Check permissions to establish gates
+                if (!GateManager.hasGateBuilderPermission(player)) {
+                    player.sendMessage("§cYou do not have permission to establish Stargates!§r");
+                    return;
+                }
+
+                // Cancel vanilla event
                 event.cancel = true;
                 system.run(() => {
+                    // Try to auto-recreate from sign text if it looks like a stargate sign
+                    const signComp = block.getComponent("minecraft:sign");
+                    if (signComp) {
+                        const text = signComp.getText();
+                        const parsed = GateManager.parseStargateSignText(text);
+                        if (parsed) {
+                            GateManager.recreateGateFromSignText(match, block, parsed.name, parsed.network, player);
+                            return;
+                        }
+                    }
+
                     GateManager.showSetupUI(match, player, block);
                 });
                 return;
@@ -84,6 +111,19 @@ export function setupBlockInteractions() {
         const result = GateManager.findGateByBlock(block);
         if (result) {
             const { key, gate } = result;
+
+            // Enforce control permission on gate destruction
+            if (!GateManager.hasGateControlPermission(player, gate)) {
+                player.sendMessage("§cYou do not have permission to destroy this Stargate!§r");
+                system.run(() => {
+                    try {
+                        const dim = world.getDimension(block.dimension.id);
+                        dim.getBlock(block).setPermutation(event.brokenBlockPermutation);
+                    } catch (e) {}
+                });
+                return;
+            }
+
             console.warn(`Gate Destruction Detected: ${gate.name} at ${block.x},${block.y},${block.z}`);
             GateManager.deleteGate(key);
             player.sendMessage(`§cStargate '${gate.name}' destroyed.`);
